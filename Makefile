@@ -69,6 +69,12 @@ data: requirements
 	uv run src/brain_mri/dataset.py
 
 
+## Extract features
+.PHONY: features
+features: requirements
+	uv run src/brain_mri/features.py
+
+
 #################################################################################
 # Self Documenting Commands                                                     #
 #################################################################################

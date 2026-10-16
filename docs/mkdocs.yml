@@ -73,8 +73,11 @@ nav:
       - Jeu de données: donnees/jeu-de-donnees.md
       - Exploration: donnees/exploration.md
       - Doublons: donnees/doublons.md
+      - Qualité des images: donnees/qualite-images.md
   - Pipeline:
       - Préparation: pipeline/preparation.md
+      - Extraction des features: pipeline/features.md
   - Référence:
       - Dataset: reference/dataset.md
+      - Features: reference/features.md
   - Décisions: decisions.md

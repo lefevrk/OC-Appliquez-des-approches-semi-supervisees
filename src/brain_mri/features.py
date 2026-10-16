@@ -1,4 +1,4 @@
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from pathlib import Path
 import time
 
@@ -86,7 +86,7 @@ class ManifestImages(Dataset):
 
     def __init__(
         self,
-        filepaths,
+        filepaths: Iterable[Path],
         transform: Callable[[Image.Image], torch.Tensor],
     ):
         """Mémorise les chemins et la transformation à appliquer."""
@@ -138,7 +138,7 @@ def load_extractor(
 
 def extract_features(
     extractor: nn.Module,
-    filepaths,
+    filepaths: Iterable[Path],
     device: torch.device | None = None,
     transform: Callable[[Image.Image], torch.Tensor] = preprocess_equalized,
     batch_size: int = BATCH_SIZE,
@@ -174,7 +174,7 @@ def extract_features(
 
 
 def save_features(
-    image_ids,
+    image_ids: Iterable[str],
     features: dict[str, np.ndarray],
     output_dir: Path = PROCESSED_DATA_DIR,
 ) -> list[Path]:
