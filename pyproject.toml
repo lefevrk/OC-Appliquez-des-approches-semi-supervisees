@@ -19,6 +19,8 @@ dependencies = [
   "tqdm",
   "numpy",
   "pandas>=3.0.0",
+  "matplotlib",
+  "pillow",
   "python-dotenv",
   "scikit-learn",
 ]
@@ -55,7 +57,6 @@ python_files = ["test_*.py", "**/test_.py", "test.py"]
 
 [tool.coverage.run]
 source = ["src"]
-
 
 [dependency-groups]
 dev = [
