@@ -54,7 +54,7 @@ def build_inventory(raw_dir: Path = RAW_DATA_DIR) -> pd.DataFrame:
 
     Returns:
         Un DataFrame trié par `subset` puis `image_id`. La colonne `label`
-        vaut `<NA>` pour les images non annotées.
+            vaut `<NA>` pour les images non annotées.
 
     Raises:
         FileNotFoundError: Si un des sous-dossiers attendus est absent.
@@ -162,7 +162,7 @@ def find_near_duplicate_pairs(
 
     Returns:
         Un DataFrame `image_id_a`, `image_id_b`, `distance`, avec
-        `image_id_a < image_id_b`, trié par distance croissante.
+            `image_id_a < image_id_b`, trié par distance croissante.
     """
     columns = ["image_id_a", "image_id_b", "distance"]
     if len(inventory) < 2:

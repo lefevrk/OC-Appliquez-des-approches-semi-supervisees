@@ -69,4 +69,6 @@ dev = [
   "pytest-cov>=7.1.0",
   "ruff>=0.14.14",
   "pandas-stubs>=3.0.0.260204",
+  "mkdocs-material>=9.7.7",
+  "mkdocstrings[python]>=1.0.7",
 ]

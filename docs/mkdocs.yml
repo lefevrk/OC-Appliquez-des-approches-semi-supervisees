@@ -1,4 +1,80 @@
-site_name: OC-Appliquez-des-approches-semi-supervisees
-#
+site_name: BrainScanAI - IRM cérébrales semi-supervisées
+site_description: Détection semi-supervisée de tumeurs cérébrales à partir d'IRM partiellement annotées.
 site_author: LEFEVRE Kilian
-#
+site_url: https://lefevrk.github.io/OC-Appliquez-des-approches-semi-supervisees/
+repo_url: https://github.com/lefevrk/OC-Appliquez-des-approches-semi-supervisees
+repo_name: lefevrk/OC-Appliquez-des-approches-semi-supervisees
+
+hooks:
+  - hooks.py
+
+theme:
+  name: material
+  language: fr
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - toc.follow
+    - content.code.copy
+  palette:
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Passer en mode clair
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: Passer en mode sombre
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: Suivre le réglage du système
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+plugins:
+  - search
+  - mkdocstrings:
+      custom_templates: templates
+      locale: fr
+      handlers:
+        python:
+          paths: [../src]
+          options:
+            docstring_style: google
+            docstring_section_style: table
+            heading_level: 3
+            members_order: source
+            separate_signature: true
+            show_root_heading: true
+            show_root_full_path: false
+            show_signature_annotations: true
+            show_source: false
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+
+nav:
+  - Accueil: index.md
+  - Démarrage: getting-started.md
+  - Données:
+      - Jeu de données: donnees/jeu-de-donnees.md
+      - Exploration: donnees/exploration.md
+      - Doublons: donnees/doublons.md
+  - Pipeline:
+      - Préparation: pipeline/preparation.md
+  - Référence:
+      - Dataset: reference/dataset.md
+  - Décisions: decisions.md
