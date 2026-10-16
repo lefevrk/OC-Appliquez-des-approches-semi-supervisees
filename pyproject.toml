@@ -19,6 +19,8 @@ dependencies = [
   "tqdm",
   "numpy",
   "pandas>=3.0.0",
+  "matplotlib",
+  "pillow",
   "python-dotenv",
   "scikit-learn",
 ]
@@ -29,6 +31,7 @@ line-length = 80
 src = ["src"]
 include = ["pyproject.toml", "src/**/*.py"]
 extend-include = ["*.ipynb"]
+exclude = ["tests/**.py"]
 
 [tool.ruff.lint]
 select = ["E", "W", "F", "I", "D", "B"]
@@ -56,7 +59,6 @@ python_files = ["test_*.py", "**/test_.py", "test.py"]
 [tool.coverage.run]
 source = ["src"]
 
-
 [dependency-groups]
 dev = [
   "mkdocs",
@@ -67,4 +69,6 @@ dev = [
   "pytest-cov>=7.1.0",
   "ruff>=0.14.14",
   "pandas-stubs>=3.0.0.260204",
+  "mkdocs-material>=9.7.7",
+  "mkdocstrings[python]>=1.0.7",
 ]
