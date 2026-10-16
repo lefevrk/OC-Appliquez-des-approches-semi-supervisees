@@ -31,6 +31,7 @@ line-length = 80
 src = ["src"]
 include = ["pyproject.toml", "src/**/*.py"]
 extend-include = ["*.ipynb"]
+exclude = ["tests/**.py"]
 
 [tool.ruff.lint]
 select = ["E", "W", "F", "I", "D", "B"]
