@@ -6,7 +6,7 @@ repos:
         # mkdocs.yml uses a Python-object YAML tag (custom Markdown fence
         # renderer) that PyYAML's safe_load can't parse — mkdocs itself
         # validates it fine (`mkdocs build --strict`).
-        exclude: ^mkdocs\.yml$
+        exclude: ^docs/mkdocs\.yml$
       - id: end-of-file-fixer
       - id: trailing-whitespace
   - repo: https://github.com/astral-sh/ruff-pre-commit
@@ -15,3 +15,10 @@ repos:
       - id: ruff-check
         args: [--fix]
       - id: ruff-format
+  - repo: local
+    hooks:
+      - id: pytest_unit
+        name: Unit tests
+        entry: make test
+        language: system
+        pass_filenames: false
