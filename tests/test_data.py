@@ -7,6 +7,7 @@ import pytest
 
 from brain_mri.dataset import (
     DATA_SOURCES,
+    EXCLUDED_IMAGES,
     INVENTORY_COLUMNS,
     REMOVED_COLUMNS,
     THUMBNAIL_SIZE,
@@ -291,3 +292,41 @@ def test_read_manifest_follows_moved_raw_dir(
 
     assert all(path.is_relative_to(moved_dir) for path in manifest["filepath"])
     assert all(path.exists() for path in manifest["filepath"])
+
+
+def test_excluded_images_each_have_a_reason():
+    assert all(reason.strip() for reason in EXCLUDED_IMAGES.values())
+
+
+def test_deduplicate_excludes_listed_images(dirty_inventory: pd.DataFrame):
+    manifest, removed = deduplicate(
+        dirty_inventory, TEST_NEAR_THRESHOLD, excluded={"y1": "illisible"}
+    )
+
+    excluded_row = removed.set_index("image_id").loc["y1"]
+    assert "y1" not in manifest["image_id"].tolist()
+    assert excluded_row["reason"] == "excluded"
+    assert pd.isna(excluded_row["kept_image_id"])
+    assert pd.isna(excluded_row["distance"])
+    assert len(manifest) + len(removed) == len(dirty_inventory)
+
+
+def test_deduplicate_excludes_before_removing_duplicates(
+    dirty_inventory: pd.DataFrame,
+):
+    manifest, removed = deduplicate(
+        dirty_inventory, TEST_NEAR_THRESHOLD, excluded={"n1": "illisible"}
+    )
+
+    # `n1` est exclue : sa copie `n2` doit être conservée, pas retirée.
+    assert "n2" in manifest["image_id"].tolist()
+    assert "n2" not in removed["image_id"].tolist()
+    assert removed.set_index("image_id").loc["n1", "reason"] == "excluded"
+
+
+def test_deduplicate_without_listed_images_excludes_nothing(
+    dirty_inventory: pd.DataFrame,
+):
+    _, removed = deduplicate(dirty_inventory, TEST_NEAR_THRESHOLD, excluded={})
+
+    assert "excluded" not in set(removed["reason"])
