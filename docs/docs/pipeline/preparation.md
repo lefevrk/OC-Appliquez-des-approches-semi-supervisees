@@ -1,6 +1,6 @@
 # Préparation
 
-La préparation transforme `data/raw/` en un **manifeste dédupliqué** et un **rapport des suppressions**, sans jamais modifier les images. Elle est implémentée dans `brain_mri.dataset` et se lance avec `make data`.
+La préparation transforme `data/raw/` en un **manifeste dédupliqué**, sans les images inexploitables, et un **rapport des suppressions**, sans jamais modifier les images. Elle est implémentée dans `brain_mri.dataset` et se lance avec `make data`.
 
 ## Flux
 
@@ -8,10 +8,12 @@ La préparation transforme `data/raw/` en un **manifeste dédupliqué** et un **
 flowchart LR
     RAW[(data/raw/)] --> INV[build_inventory]
     INV --> HASH[add_file_hash]
-    HASH --> EXACT[deduplicate_exact]
+    HASH --> EXCL[Exclusion des images inexploitables]
+    EXCL --> EXACT[deduplicate_exact]
     EXACT --> NEAR[deduplicate_near]
     NEAR --> MAN[/data/interim/manifest.csv/]
-    EXACT --> REP[/reports/removed_duplicates.csv/]
+    EXCL --> REP[/reports/removed_duplicates.csv/]
+    EXACT --> REP
     NEAR --> REP
 ```
 
@@ -24,7 +26,7 @@ flowchart LR
 | `deduplicate_exact` | Garde une copie par contenu binaire identique |
 | `find_near_duplicate_pairs` | Repère les paires dont les miniatures sont quasi identiques |
 | `deduplicate_near` | Retire un membre de chaque paire de quasi-doublons |
-| `deduplicate` | Enchaîne les deux déduplications et renvoie le manifeste et le rapport |
+| `deduplicate` | Exclut les images de `EXCLUDED_IMAGES`, puis enchaîne les deux déduplications et renvoie le manifeste et le rapport |
 | `write_manifest`, `read_manifest` | Écrivent et relisent le manifeste avec des chemins relatifs |
 
 La signature complète de chaque fonction figure dans la [référence](../reference/dataset.md).
@@ -55,20 +57,21 @@ Une ligne par image retirée.
 |---|---|
 | `image_id`, `subset` | L'image retirée |
 | `kept_image_id`, `kept_subset` | L'image conservée à sa place |
-| `reason` | `exact` ou `near` |
-| `distance` | Distance entre miniatures (0 pour un doublon exact) |
+| `reason` | `excluded` (exclusion manuelle), `exact` ou `near` |
+| `distance` | Distance entre miniatures (0 pour un doublon exact, vide pour une exclusion) |
 
 !!! note "Chaînes de suppression"
-    Une image conservée à une étape peut être retirée à la suivante. Il faut alors suivre la chaîne `kept_image_id` jusqu'à une image présente dans le manifeste.
+    Une image exclue à la main n'a pas d'image conservée. Une image conservée à une étape peut être retirée à la suivante. Il faut alors suivre la chaîne `kept_image_id` jusqu'à une image présente dans le manifeste.
 
 ## Résultat
 
 | | Images |
 |---|---:|
 | Brut | 1 506 |
+| Retirée (exclusion manuelle) | 1 |
 | Retirées (doublons exacts) | 96 |
 | Retirées (quasi-doublons) | 23 |
-| **Manifeste** | **1 387** |
+| **Manifeste** | **1 386** |
 
 ## Options de la commande
 

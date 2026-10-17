@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 import hashlib
 from pathlib import Path
 from typing import NamedTuple
@@ -19,6 +20,14 @@ IMAGE_PATTERN = "*.jpg"
 # paires dans `notebooks/02.0-kl-duplicates-analysis.ipynb`.
 THUMBNAIL_SIZE = 32
 NEAR_DUPLICATE_THRESHOLD = 0.15
+
+# Images retirées à la main, car inexploitables (cf. notebook 03.0). Le fichier
+# brut n'est jamais modifié : l'image est seulement exclue du manifeste.
+EXCLUDED_IMAGES: dict[str, str] = {
+    "ca4c389b-8e9b-40d0-b149-1c81934ea251": (
+        "saturée, sans détail anatomique exploitable"
+    ),
+}
 
 # Sous-dossier de `data/raw/` et label associé (NA = image non annotée).
 DATA_SOURCES: dict[str, tuple[Path, str | None]] = {
@@ -296,33 +305,60 @@ class DeduplicationResult(NamedTuple):
     Attributes:
         manifest: Images conservées.
         removed: Une ligne par image retirée (`image_id`, `kept_image_id`,
-            `reason` valant `exact` ou `near`, `distance` entre miniatures).
-            Une image conservée à une étape peut être retirée à la suivante :
-            il faut alors suivre la chaîne `kept_image_id`.
+            `reason` valant `excluded`, `exact` ou `near`, `distance` entre
+            miniatures). Une image exclue à la main n'a ni image conservée ni
+            distance. Une image conservée à une étape peut être retirée à la
+            suivante : il faut alors suivre la chaîne `kept_image_id`.
     """
 
     manifest: pd.DataFrame
     removed: pd.DataFrame
 
 
+def _manual_removals(excluded: pd.DataFrame) -> pd.DataFrame:
+    """Décrit les images exclues à la main (aucune image conservée)."""
+    return pd.DataFrame(
+        {
+            "image_id": excluded["image_id"].to_numpy(),
+            "subset": excluded["subset"].to_numpy(),
+            "kept_image_id": pd.NA,
+            "kept_subset": pd.NA,
+            "reason": "excluded",
+            "distance": np.nan,
+        },
+        columns=REMOVED_COLUMNS,
+    )
+
+
 def deduplicate(
     inventory: pd.DataFrame,
     near_duplicate_threshold: float = NEAR_DUPLICATE_THRESHOLD,
+    excluded: Mapping[str, str] = EXCLUDED_IMAGES,
 ) -> DeduplicationResult:
-    """Retire les doublons exacts puis les quasi-doublons.
+    """Exclut les images inexploitables, puis retire les doublons.
+
+    Les images exclues sont retirées en premier, pour qu'elles ne soient jamais
+    conservées comme copie d'une autre image.
 
     Args:
         inventory: Table produite par `add_file_hash`.
         near_duplicate_threshold: Seuil de distance des quasi-doublons.
+        excluded: Identifiants des images à exclure, avec la raison.
 
     Returns:
         Le manifeste des images conservées et le rapport des suppressions.
     """
+    excluded_rows = inventory.loc[inventory["image_id"].isin(excluded)]
+    inventory = _without(inventory, excluded_rows["image_id"])
     kept = deduplicate_exact(inventory)
     near_removed = _near_removals(kept, near_duplicate_threshold)
     removed = (
         pd.concat(
-            [_exact_removals(inventory, kept), near_removed],
+            [
+                _manual_removals(excluded_rows),
+                _exact_removals(inventory, kept),
+                near_removed,
+            ],
             ignore_index=True,
         )
         .sort_values(["reason", "image_id"])

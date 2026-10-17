@@ -79,6 +79,8 @@ flowchart TD
 
 Le jeu annoté final compte **98 images** (50 `cancer`, 48 `normal`). Il reste équilibré à deux images près, ce qui est à garder en tête pour les métriques.
 
+Ces chiffres sont ceux de la déduplication seule. Le manifeste final compte **1 386 images**, car une image inexploitable est ensuite exclue (voir [Qualité des images](qualite-images.md)).
+
 ## Limites
 
 - Le seuil de 0,15 est choisi par inspection : il est documenté dans le code (`NEAR_DUPLICATE_THRESHOLD`) mais reste un choix.
