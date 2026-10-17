@@ -23,6 +23,8 @@ dependencies = [
   "pillow",
   "python-dotenv",
   "scikit-learn",
+  "torch>=2.14.1",
+  "torchvision>=0.29.1",
 ]
 requires-python = ">=3.12"
 
@@ -61,7 +63,6 @@ source = ["src"]
 
 [dependency-groups]
 dev = [
-  "mkdocs",
   "notebook",
   "pre-commit>=4.5.1",
   "pyright>=1.1.408",
@@ -69,6 +70,12 @@ dev = [
   "pytest-cov>=7.1.0",
   "ruff>=0.14.14",
   "pandas-stubs>=3.0.0.260204",
+]
+docs = [
+  "mkdocs>=1.6.1",
   "mkdocs-material>=9.7.7",
   "mkdocstrings[python]>=1.0.7",
 ]
+
+[tool.uv]
+default-groups = ["dev", "docs"]
