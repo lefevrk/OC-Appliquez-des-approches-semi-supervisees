@@ -35,6 +35,7 @@ La commande lance `brain_mri.dataset` et écrit :
 |---|---|
 | `data/interim/manifest.csv` | Les images conservées, avec leur label et leur empreinte |
 | `reports/removed_duplicates.csv` | Les images retirées, avec la raison et l'image conservée |
+| `data/processed/split.csv` | Le jeu (`train`, `validation` ou `test`) de chaque image |
 
 Les options se règlent en ligne de commande :
 
@@ -52,6 +53,14 @@ La commande lit `data/interim/manifest.csv` et écrit, dans `data/processed/`, u
 
 !!! note
     `uv sync` installe PyTorch, dont le téléchargement est volumineux.
+
+## Calculer les labels faibles
+
+```bash
+make unsupervised
+```
+
+La commande lit le manifeste, le découpage et les features de `layer3`, ajuste la standardisation, la PCA et K-Means sur l'entraînement, puis écrit `data/processed/weak_labels.csv` : un label faible (`cancer` ou `normal`) et une confiance pour chaque image non annotée. Elle suppose que `make data` et `make features` ont été lancés.
 
 ## Relire le manifeste
 

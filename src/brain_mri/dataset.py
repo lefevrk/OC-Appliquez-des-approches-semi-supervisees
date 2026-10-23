@@ -7,10 +7,16 @@ from loguru import logger
 import numpy as np
 import pandas as pd
 from PIL import Image
+from sklearn.model_selection import train_test_split
 from sklearn.neighbors import NearestNeighbors
 import typer
 
-from brain_mri.config import INTERIM_DATA_DIR, RAW_DATA_DIR, REPORTS_DIR
+from brain_mri.config import (
+    INTERIM_DATA_DIR,
+    PROCESSED_DATA_DIR,
+    RAW_DATA_DIR,
+    REPORTS_DIR,
+)
 
 app = typer.Typer()
 
@@ -35,6 +41,13 @@ DATA_SOURCES: dict[str, tuple[Path, str | None]] = {
     "cancer": (Path("avec_labels") / "cancer", "cancer"),
     "normal": (Path("avec_labels") / "normal", "normal"),
 }
+
+# Découpage des images annotées : le test et la validation sont tirés parmi
+# elles (stratifiés), toutes les autres images forment l'entraînement.
+TEST_SIZE = 30
+VALIDATION_SIZE = 16
+SPLIT_RANDOM_STATE = 42
+SPLIT_NAMES = ("train", "validation", "test")
 
 REMOVED_COLUMNS = [
     "image_id",
@@ -408,14 +421,89 @@ def read_manifest(
     )
 
 
+def split_dataset(
+    manifest: pd.DataFrame,
+    test_size: int = TEST_SIZE,
+    validation_size: int = VALIDATION_SIZE,
+    random_state: int = SPLIT_RANDOM_STATE,
+) -> pd.DataFrame:
+    """Répartit les images en entraînement, validation et test.
+
+    Le test et la validation sont tirés **parmi les images annotées
+    uniquement**, car il faut des labels forts pour les évaluer. Les tirages
+    sont stratifiés : les classes y sont aussi équilibrées que possible. Toutes
+    les autres images, annotées ou non, forment l'entraînement. Les images non
+    annotées ne forment aucune classe : elles servent à l'apprentissage non
+    supervisé.
+
+    Args:
+        manifest: Table avec les colonnes `image_id`, `label` et `is_labeled`.
+        test_size: Nombre d'images annotées réservées au test.
+        validation_size: Nombre d'images annotées réservées à la validation.
+        random_state: Graine du tirage, pour un découpage reproductible.
+
+    Returns:
+        Une ligne par image du manifeste (`image_id`, `split`), `split` valant
+        `train`, `validation` ou `test`.
+
+    Raises:
+        ValueError: Si les images annotées ne suffisent pas à réserver le test
+            et la validation tout en gardant des images annotées à
+            l'entraînement.
+    """
+    annotated = manifest[manifest["is_labeled"]]
+    if test_size + validation_size >= len(annotated):
+        raise ValueError(
+            f"{len(annotated)} images annotées : trop peu pour réserver "
+            f"{test_size} images de test et {validation_size} de validation."
+        )
+    remaining_ids, test_ids = train_test_split(
+        annotated["image_id"],
+        test_size=test_size,
+        stratify=annotated["label"],
+        random_state=random_state,
+    )
+    remaining = annotated[annotated["image_id"].isin(remaining_ids)]
+    _, validation_ids = train_test_split(
+        remaining["image_id"],
+        test_size=validation_size,
+        stratify=remaining["label"],
+        random_state=random_state,
+    )
+    split = np.select(
+        [
+            manifest["image_id"].isin(test_ids),
+            manifest["image_id"].isin(validation_ids),
+        ],
+        ["test", "validation"],
+        default="train",
+    )
+    return pd.DataFrame({"image_id": manifest["image_id"], "split": split})
+
+
+def read_split(split_path: Path) -> pd.DataFrame:
+    """Relit un découpage écrit par `main`.
+
+    Args:
+        split_path: Fichier CSV du découpage.
+
+    Returns:
+        Une ligne par image (`image_id`, `split`).
+    """
+    return pd.read_csv(split_path, dtype={"image_id": str, "split": str})
+
+
 @app.command()
 def main(
     raw_dir: Path = RAW_DATA_DIR,
     output_path: Path = INTERIM_DATA_DIR / "manifest.csv",
     report_path: Path = REPORTS_DIR / "removed_duplicates.csv",
+    split_path: Path = PROCESSED_DATA_DIR / "split.csv",
     near_duplicate_threshold: float = NEAR_DUPLICATE_THRESHOLD,
+    test_size: int = TEST_SIZE,
+    validation_size: int = VALIDATION_SIZE,
 ):
-    """Déduplique les images brutes, écrit le manifeste et le rapport."""
+    """Déduplique les images brutes, écrit le manifeste, le rapport, le découpage."""
     logger.info(f"Inventaire des images de {raw_dir}...")
     inventory = add_file_hash(build_inventory(raw_dir))
     manifest, removed = deduplicate(inventory, near_duplicate_threshold)
@@ -423,11 +511,18 @@ def main(
     write_manifest(manifest, output_path, raw_dir)
     report_path.parent.mkdir(parents=True, exist_ok=True)
     removed.to_csv(report_path, index=False)
+
+    split = split_dataset(manifest, test_size, validation_size)
+    split_path.parent.mkdir(parents=True, exist_ok=True)
+    split.to_csv(split_path, index=False)
+
     logger.success(
         f"{len(manifest)} images conservées sur {len(inventory)} "
         f"({manifest['is_labeled'].sum()} annotées), "
         f"manifeste enregistré dans {output_path}, "
-        f"{len(removed)} suppressions listées dans {report_path}"
+        f"{len(removed)} suppressions listées dans {report_path}, "
+        f"découpage ({split['split'].value_counts().to_dict()}) "
+        f"enregistré dans {split_path}"
     )
 
 

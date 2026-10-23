@@ -57,11 +57,11 @@ flowchart LR
     RAW[(IRM brutes<br/>1 506 images)] --> PREP[Nettoyage<br/>déduplication]
     PREP --> MAN[/Manifeste<br/>1 386 images/]
     MAN --> FEAT[Caractéristiques<br/>ResNet50 pré-entraîné]
-    FEAT -.-> CLUS[Clustering<br/>labels faibles]
+    FEAT --> CLUS[Clustering<br/>labels faibles]
     CLUS -.-> SEMI[Apprentissage<br/>semi-supervisé]
 ```
 
-Les flèches pointillées sont les étapes à venir.
+La flèche pointillée est l'étape à venir.
 
 ### Contexte
 
@@ -76,7 +76,9 @@ Annoter une IRM demande l'avis d'un radiologue : c'est long et coûteux. Une app
 - **Produit un manifeste CSV** aux chemins relatifs, et un **rapport des suppressions** qui justifie chaque image retirée
 - **Réduit les biais liés à l'image** par un prétraitement en niveaux de gris avec égalisation d'histogramme, dont l'effet est mesuré
 - **Extrait des caractéristiques visuelles** avec un ResNet50 pré-entraîné et gelé (couches `layer3` et `layer4`), enregistrées avec leurs identifiants dans des fichiers `.npz`
-- **Se teste et se documente** : tests `pytest` sur la logique de préparation, documentation MkDocs avec référence d'API générée
+- **Réserve un jeu de test et un jeu de validation** avant toute transformation, tirés parmi les images annotées de façon stratifiée
+- **Regroupe les images** (K-Means, DBSCAN, HDBSCAN) après standardisation et PCA, mesure l'accord avec les labels forts (ARI) et attribue des **labels faibles** aux images non annotées avec K-Means
+- **Se teste et se documente** : tests `pytest` sur la préparation, l'extraction et les labels faibles, documentation MkDocs avec référence d'API générée
 
 ### Technologies utilisées
 
@@ -97,7 +99,7 @@ Annoter une IRM demande l'avis d'un radiologue : c'est long et coûteux. Une app
 |---|---|
 | 1. Importer les données et explorer le jeu de radiographies | Terminée |
 | 2. Prétraiter et extraire les caractéristiques | Terminée |
-| 3. Réaliser une analyse non supervisée | À venir |
+| 3. Réaliser une analyse non supervisée | Terminée |
 | 4. Appliquer une méthode semi-supervisée | À venir |
 | Synthèse et recommandations de passage à l'échelle | À venir |
 
@@ -146,7 +148,7 @@ Détail complet dans la [documentation](docs/docs/getting-started.md).
 make data
 ```
 
-La commande écrit `data/interim/manifest.csv` (images conservées) et `reports/removed_duplicates.csv` (images retirées, avec la raison). Ses options se listent avec `uv run python -m brain_mri.dataset --help`.
+La commande écrit `data/interim/manifest.csv` (images conservées), `reports/removed_duplicates.csv` (images retirées, avec la raison) et `data/processed/split.csv` (jeu d'entraînement, de validation ou de test de chaque image). Ses options se listent avec `uv run python -m brain_mri.dataset --help`.
 
 ### Relire le manifeste
 
@@ -166,6 +168,14 @@ make features
 
 La commande lit le manifeste et écrit, dans `data/processed/`, `features_resnet50_layer3.npz` et `features_resnet50_layer4.npz` (identifiants et matrice de features). Les poids du ResNet50 sont téléchargés au premier lancement.
 
+### Calculer les labels faibles
+
+```bash
+make unsupervised
+```
+
+La commande ajuste la standardisation, la PCA et K-Means sur le jeu d'entraînement et écrit, dans `data/processed/`, `weak_labels.csv` : un label faible (`cancer` ou `normal`) et une confiance pour chaque image non annotée. Elle suppose que `make data` et `make features` ont été lancés.
+
 ### Reproduire les analyses
 
 | Notebook | Contenu |
@@ -173,6 +183,7 @@ La commande lit le manifeste et écrit, dans `data/processed/`, `features_resnet
 | `notebooks/01.0-kl-data-exploration.ipynb` | Exploration initiale du jeu de données |
 | `notebooks/02.0-kl-duplicates-analysis.ipynb` | Analyse et règle de déduplication |
 | `notebooks/03.0-kl-feature-extraction.ipynb` | Qualité des images, prétraitement et extraction des features |
+| `notebooks/04.0-kl-unsupervised-analysis.ipynb` | Découpage, réduction de dimension, clustering et labels faibles |
 
 ### Consulter la documentation
 
@@ -183,11 +194,12 @@ uv run mkdocs serve -f docs/mkdocs.yml
 ### Commandes utiles
 
 ```bash
-make data      # Produire le manifeste dédupliqué et le rapport
-make features  # Extraire les features du ResNet50
-make lint      # Vérifier le formatage et le linting
-make format    # Appliquer le formatage et les corrections Ruff
-make test      # Exécuter les tests
+make data          # Produire le manifeste dédupliqué, le rapport et le découpage
+make features      # Extraire les features du ResNet50
+make unsupervised  # Calculer les labels faibles avec K-Means
+make lint          # Vérifier le formatage et le linting
+make format        # Appliquer le formatage et les corrections Ruff
+make test          # Exécuter les tests
 ```
 
 <p align="right">(<a href="#readme-top">retour en haut</a>)</p>
@@ -227,7 +239,9 @@ make test      # Exécuter les tests
 │       ├── modeling
 │       │   ├── __init__.py
 │       │   ├── predict.py      <- Inférence avec les modèles entraînés
-│       │   └── train.py        <- Entraînement des modèles
+│       │   ├── preprocessing.py <- Standardisation et PCA
+│       │   ├── train.py        <- Entraînement des modèles
+│       │   └── unsupervised.py <- Clustering, labels faibles et leur évaluation
 │       └── plots.py            <- Création des visualisations
 │
 └── tests              <- Tests unitaires
@@ -242,7 +256,10 @@ make test      # Exécuter les tests
 - Après déduplication et exclusion d'une image inexploitable, **1 386 images** sont conservées, dont **98 annotées** (50 `cancer`, 48 `normal`) - détail dans [Préparation](docs/docs/pipeline/preparation.md).
 - Sur les images d'origine, la luminosité, le contraste et la part de fond suffisent à séparer en grande partie les classes annotées (AUC de 0,82). Après égalisation d'histogramme, cet indice tombe à 0,66 sans dégrader les features - détail dans [Extraction des features](docs/docs/pipeline/features.md).
 - Les features du ResNet50 portent un signal : un modèle linéaire de référence atteint une AUC de 0,978 (`layer3`) et 0,966 (`layer4`) sur les 98 images annotées, en validation croisée.
-- **34 tests** couvrent l'inventaire, la déduplication, le manifeste, le prétraitement et l'extraction.
+- Le test (30 images) et la validation (16 images) sont tirés parmi les 98 annotées avant toute transformation, de façon stratifiée - détail dans [Préparation](docs/docs/pipeline/preparation.md).
+- Sur `layer3`, K-Means (deux clusters) atteint un ARI de 0,199 sur l'entraînement, 0,354 sur la validation et 0,341 sur le test. DBSCAN et HDBSCAN laissent 22 % et 28 % d'images en bruit et leur ARI hors bruit tombe à environ 0 sur le test - détail dans [Analyse non supervisée](docs/docs/pipeline/analyse-non-supervisee.md).
+- Les labels faibles de K-Means (841 `normal`, 447 `cancer`) ont une exactitude de 0,81 sur la validation et 0,80 sur le test (intervalle à 95 % de 0,63 à 0,91 sur 30 images), avec une confiance faible. La répartition réelle des images non annotées est inconnue.
+- **70 tests** couvrent l'inventaire, la déduplication, le manifeste, le découpage, le prétraitement, l'extraction, la standardisation et les labels faibles.
 
 <!-- ACKNOWLEDGMENTS -->
 ## Remerciements

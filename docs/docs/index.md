@@ -23,12 +23,13 @@ Le projet exploite des images IRM **partiellement annotées** : seules 100 image
 | `notebooks/01.0-kl-data-exploration.ipynb` | Exploration initiale du jeu de données | [Exploration](donnees/exploration.md) |
 | `notebooks/02.0-kl-duplicates-analysis.ipynb` | Analyse et règle de déduplication | [Doublons](donnees/doublons.md) |
 | `notebooks/03.0-kl-feature-extraction.ipynb` | Qualité des images, prétraitement et extraction des features | [Qualité des images](donnees/qualite-images.md), [Extraction des features](pipeline/features.md) |
+| `notebooks/04.0-kl-unsupervised-analysis.ipynb` | Découpage, réduction de dimension, clustering et labels faibles | [Analyse non supervisée](pipeline/analyse-non-supervisee.md) |
 
-Le code réutilisable vit dans `src/brain_mri/`. Les notebooks l'importent plutôt que de le recopier : voir les pages [Préparation](pipeline/preparation.md) et [Extraction des features](pipeline/features.md), et la référence de l'API ([dataset](reference/dataset.md), [features](reference/features.md)).
+Le code réutilisable vit dans `src/brain_mri/`. Les notebooks l'importent plutôt que de le recopier : voir les pages [Préparation](pipeline/preparation.md), [Extraction des features](pipeline/features.md) et [Analyse non supervisée](pipeline/analyse-non-supervisee.md), et la référence de l'API ([dataset](reference/dataset.md), [features](reference/features.md), [préparation des features](reference/preprocessing.md), [analyse non supervisée](reference/unsupervised.md)).
 
 ## Où trouver quoi
 
-- [Démarrage](getting-started.md) : installer le projet, produire le jeu dédupliqué et extraire les features.
+- [Démarrage](getting-started.md) : installer le projet, produire le jeu dédupliqué, extraire les features et calculer les labels faibles.
 - [Données](donnees/jeu-de-donnees.md) : contenu du jeu de données, exploration, doublons et qualité des images.
-- [Pipeline](pipeline/preparation.md) : flux de la préparation et de l'extraction, fichiers produits.
+- [Pipeline](pipeline/preparation.md) : flux de la préparation, de l'extraction et de l'analyse non supervisée, fichiers produits.
 - [Décisions](decisions.md) : choix faits et raisons.
