@@ -77,7 +77,10 @@ nav:
   - Pipeline:
       - Préparation: pipeline/preparation.md
       - Extraction des features: pipeline/features.md
+      - Analyse non supervisée: pipeline/analyse-non-supervisee.md
   - Référence:
       - Dataset: reference/dataset.md
       - Features: reference/features.md
+      - Préparation des features: reference/preprocessing.md
+      - Analyse non supervisée: reference/unsupervised.md
   - Décisions: decisions.md

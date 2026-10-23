@@ -74,8 +74,40 @@ Les choix faits pendant la préparation des données et l'extraction des feature
 
 **Raison.** L'alignement avec le manifeste ne peut pas se perdre, et le format n'ajoute aucune dépendance (NumPy suffit).
 
-## Standardisation et encodage reportés
+## Standardisation ajustée sur l'entraînement, encodage limité aux annotées
 
-**Décision.** Les features ne sont pas standardisées à cette étape, et le label n'est encodé (0 / 1) que pour les images annotées, quand un modèle en a besoin.
+**Décision.** Les features ne sont pas standardisées à l'extraction : la standardisation et la PCA se font à l'étape d'analyse non supervisée, ajustées sur l'**entraînement uniquement**, une fois le découpage défini. Le label n'est encodé (1 pour `cancer`, 0 pour `normal`) que pour les images annotées, quand un calcul en a besoin.
 
-**Raison.** La standardisation dépend de la population sur laquelle on l'ajuste, donc du jeu de test à définir pour l'étape semi-supervisée : l'ajuster maintenant sur toutes les images mélangerait les données de test. Les images non annotées ne forment pas une classe : elles sont exploitées sans label par la méthode semi-supervisée, et ne reçoivent donc jamais de code.
+**Raison.** La standardisation dépend de la population sur laquelle on l'ajuste : l'ajuster sur toutes les images mélangerait les données de validation et de test. Les images non annotées ne forment pas une classe : elles sont exploitées sans label par la méthode semi-supervisée, et ne reçoivent donc jamais de code.
+
+## Entraînement, validation et test, définis avant toute transformation
+
+**Décision.** Le test (30 images) et la validation (16 images) sont tirés parmi les images annotées uniquement, de façon stratifiée et avec une graine fixe (`split_dataset`). L'entraînement regroupe les 52 autres annotées et toutes les images non annotées. Le découpage est écrit dans `data/processed/split.csv` par `make data`.
+
+**Raison.** Il faut des labels forts pour évaluer, donc test et validation sont annotés. Définir les trois jeux en premier garantit que le test ne participe à aucun ajustement (standardisation, PCA, clustering, choix de paramètres). La validation sert aux vérifications en cours de route et, à l'étape suivante, à l'arrêt anticipé de l'entraînement.
+
+**Limites.** Avec 98 annotées, les jeux sont très petits : une image de test représente 3 points d'exactitude, et les mesures sont indicatives.
+
+## K-Means comme référence et seule source de labels faibles
+
+**Décision.** K-Means (couche `layer3`, 50 composantes de PCA, `k = 2`, seed fixe) attribue les labels faibles. DBSCAN et HDBSCAN sont conservés pour la comparaison, sans servir à étiqueter.
+
+**Raison.** K-Means attribue une classe à **toutes** les images, produit directement deux groupes comme les deux classes, n'a aucun paramètre à choisir sur 52 images et son ARI se maintient sur la validation et le test (0,354 et 0,341). DBSCAN et HDBSCAN laissent 22 % et 28 % des images sans cluster, donc sans classe, et leur ARI hors bruit tombe à environ 0 sur le test (sur 17 et 19 images seulement).
+
+## Le bruit n'est ni un cluster, ni une classe
+
+**Décision.** Les images que DBSCAN et HDBSCAN classent en bruit (`-1`) sont rapportées (part des images), mais n'entrent pas dans l'ARI et ne reçoivent aucune classe. Le vote cluster → classe ignore le bruit.
+
+**Raison.** Le bruit est un résultat attendu de ces méthodes : il désigne les images qu'aucune zone dense n'accepte. Lui attribuer une classe reviendrait à décider à la main que « dispersé » signifie `normal`, une règle trouvée après coup sur peu d'images.
+
+## Nouvelles images pour DBSCAN et HDBSCAN : plus proche voisin
+
+**Décision.** Pour évaluer DBSCAN et HDBSCAN sur la validation et le test, chaque image prend le groupe de son plus proche voisin de l'entraînement, bruit compris.
+
+**Raison.** `scikit-learn` n'offre pas de `predict` pour ces deux méthodes. C'est une approximation : la règle propre à DBSCAN (le point cœur le plus proche à moins de `eps`) donnerait plus de bruit, et un ARI différent mais toujours proche de 0.
+
+## La confiance est une marge, pas une probabilité
+
+**Décision.** La confiance d'un label faible est la marge relative entre la distance au centre le plus proche et la distance à l'autre centre, entre 0 et 1.
+
+**Raison.** Elle sert à classer les images selon leur éloignement de la frontière entre clusters. Elle n'est pas calibrée : elle ne dit pas la probabilité que le label soit correct, et son lien avec l'exactitude n'est pas validé. Un éventuel seuil de confiance se choisira à l'étape suivante, par son effet sur le modèle.

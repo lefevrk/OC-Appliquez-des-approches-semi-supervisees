@@ -10,6 +10,7 @@ from brain_mri.dataset import (
     EXCLUDED_IMAGES,
     INVENTORY_COLUMNS,
     REMOVED_COLUMNS,
+    SPLIT_NAMES,
     THUMBNAIL_SIZE,
     add_file_hash,
     build_inventory,
@@ -20,6 +21,8 @@ from brain_mri.dataset import (
     find_near_duplicate_pairs,
     load_thumbnail,
     read_manifest,
+    read_split,
+    split_dataset,
     write_manifest,
 )
 
@@ -330,3 +333,101 @@ def test_deduplicate_without_listed_images_excludes_nothing(
     _, removed = deduplicate(dirty_inventory, TEST_NEAR_THRESHOLD, excluded={})
 
     assert "excluded" not in set(removed["reason"])
+
+
+@pytest.fixture
+def labeled_manifest() -> pd.DataFrame:
+    """20 `cancer`, 20 `normal` annotées et 100 images non annotées."""
+    labels = ["cancer"] * 20 + ["normal"] * 20 + [None] * 100
+    return pd.DataFrame(
+        {
+            "image_id": [f"image-{index:03d}" for index in range(len(labels))],
+            "label": labels,
+            "is_labeled": [label is not None for label in labels],
+        }
+    )
+
+
+def _split_of(split: pd.DataFrame, manifest: pd.DataFrame, name: str):
+    """Lignes du manifeste affectées au jeu `name`."""
+    ids = split.loc[split["split"] == name, "image_id"]
+    return manifest[manifest["image_id"].isin(ids)]
+
+
+def test_split_dataset_reserves_the_requested_sizes(
+    labeled_manifest: pd.DataFrame,
+):
+    split = split_dataset(labeled_manifest, test_size=6, validation_size=4)
+
+    assert split["split"].value_counts().to_dict() == {
+        "train": 130,
+        "test": 6,
+        "validation": 4,
+    }
+
+
+def test_split_dataset_covers_every_image_once(
+    labeled_manifest: pd.DataFrame,
+):
+    split = split_dataset(labeled_manifest, test_size=6, validation_size=4)
+
+    assert split["image_id"].tolist() == labeled_manifest["image_id"].tolist()
+    assert set(split["split"]) <= set(SPLIT_NAMES)
+
+
+def test_split_dataset_draws_test_and_validation_among_labeled_only(
+    labeled_manifest: pd.DataFrame,
+):
+    split = split_dataset(labeled_manifest, test_size=6, validation_size=4)
+
+    for name in ("test", "validation"):
+        assert _split_of(split, labeled_manifest, name)["is_labeled"].all()
+    train = _split_of(split, labeled_manifest, "train")
+    assert (~train["is_labeled"]).sum() == 100
+    assert train["is_labeled"].sum() == 30
+
+
+def test_split_dataset_is_stratified(labeled_manifest: pd.DataFrame):
+    split = split_dataset(labeled_manifest, test_size=6, validation_size=4)
+
+    for name, per_class in (("test", 3), ("validation", 2)):
+        counts = _split_of(split, labeled_manifest, name)[
+            "label"
+        ].value_counts()
+        assert counts.to_dict() == {"cancer": per_class, "normal": per_class}
+
+
+def test_split_dataset_is_reproducible(labeled_manifest: pd.DataFrame):
+    first = split_dataset(labeled_manifest, test_size=6, validation_size=4)
+    second = split_dataset(labeled_manifest, test_size=6, validation_size=4)
+    other_seed = split_dataset(
+        labeled_manifest, test_size=6, validation_size=4, random_state=1
+    )
+
+    pd.testing.assert_frame_equal(first, second)
+    assert not first.equals(other_seed)
+
+
+def test_split_dataset_does_not_mutate_input(labeled_manifest: pd.DataFrame):
+    before = labeled_manifest.copy()
+
+    split_dataset(labeled_manifest, test_size=6, validation_size=4)
+
+    pd.testing.assert_frame_equal(labeled_manifest, before)
+
+
+def test_split_dataset_raises_when_labeled_images_are_too_few(
+    labeled_manifest: pd.DataFrame,
+):
+    with pytest.raises(ValueError, match="trop peu"):
+        split_dataset(labeled_manifest, test_size=30, validation_size=10)
+
+
+def test_split_round_trip_preserves_data(
+    labeled_manifest: pd.DataFrame, tmp_path: Path
+):
+    split = split_dataset(labeled_manifest, test_size=6, validation_size=4)
+    split_path = tmp_path / "split.csv"
+    split.to_csv(split_path, index=False)
+
+    pd.testing.assert_frame_equal(read_split(split_path), split)

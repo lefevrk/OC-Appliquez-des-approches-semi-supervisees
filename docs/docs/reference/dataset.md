@@ -12,6 +12,10 @@ Chargement, déduplication et manifeste des données d'IRM. Le flux d'ensemble e
 | `REMOVED_COLUMNS` | 6 colonnes | Colonnes du rapport des suppressions |
 | `THUMBNAIL_SIZE` | `32` | Côté des miniatures utilisées pour les quasi-doublons, en pixels |
 | `NEAR_DUPLICATE_THRESHOLD` | `0.15` | Distance maximale entre miniatures pour un quasi-doublon |
+| `TEST_SIZE` | `30` | Nombre d'images annotées réservées au test |
+| `VALIDATION_SIZE` | `16` | Nombre d'images annotées réservées à la validation |
+| `SPLIT_RANDOM_STATE` | `42` | Graine du découpage |
+| `SPLIT_NAMES` | `train`, `validation`, `test` | Valeurs possibles de la colonne `split` |
 
 ## Inventaire
 
@@ -42,6 +46,12 @@ Chargement, déduplication et manifeste des données d'IRM. Le flux d'ensemble e
 ::: brain_mri.dataset.write_manifest
 
 ::: brain_mri.dataset.read_manifest
+
+## Découpage
+
+::: brain_mri.dataset.split_dataset
+
+::: brain_mri.dataset.read_split
 
 ## Ligne de commande
 

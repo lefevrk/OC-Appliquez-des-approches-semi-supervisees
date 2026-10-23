@@ -75,6 +75,12 @@ features: requirements
 	uv run src/brain_mri/features.py
 
 
+## Label unlabeled images with K-Means
+.PHONY: unsupervised
+unsupervised: requirements
+	uv run src/brain_mri/modeling/unsupervised.py
+
+
 #################################################################################
 # Self Documenting Commands                                                     #
 #################################################################################

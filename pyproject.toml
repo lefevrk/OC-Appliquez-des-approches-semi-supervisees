@@ -7,7 +7,7 @@ packages = ["src/brain_mri"]
 
 [project]
 name = "brain-mri"
-version = "0.2.0"
+version = "0.3.0"
 description = "Semi-supervised brain MRI tumor detection and image analysis"
 authors = [{ name = "Kilian LEFEVRE" }]
 
