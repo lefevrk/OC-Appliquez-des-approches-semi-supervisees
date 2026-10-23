@@ -104,4 +104,4 @@ uv run python -m brain_mri.features \
 ```
 
 !!! note "Ce qui n'est pas fait ici"
-    La standardisation des features dépend de la population sur laquelle on l'ajuste, donc du jeu de test à définir pour l'étape semi-supervisée. Elle se fait dans l'étape suivante. De même, le label n'est encodé (0 / 1) que pour les images annotées et seulement quand un modèle en a besoin. Les images non annotées ne reçoivent jamais de label.
+    La standardisation des features dépend de la population sur laquelle on l'ajuste, donc du jeu de test à définir. Elle se fait à l'étape suivante, une fois les jeux réservés : voir [Analyse non supervisée](analyse-non-supervisee.md). De même, le label n'est encodé (0 / 1) que pour les images annotées et seulement quand un modèle en a besoin. Les images non annotées ne reçoivent jamais de label.
