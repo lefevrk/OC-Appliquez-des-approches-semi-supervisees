@@ -1,6 +1,6 @@
 # Doublons
 
-Notebook : `notebooks/02.0-kl-duplicates-analysis.ipynb`
+Notebook : `notebooks/02.01-kl-data-cleaning.ipynb`
 
 Le notebook d'exploration a repéré des fichiers identiques. Cette page caractérise ces doublons et justifie la règle de déduplication implémentée dans `brain_mri.dataset`. Les données brutes ne sont jamais modifiées.
 

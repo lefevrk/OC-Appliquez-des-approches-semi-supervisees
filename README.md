@@ -180,10 +180,10 @@ La commande ajuste la standardisation, la PCA et K-Means sur le jeu d'entraînem
 
 | Notebook | Contenu |
 |---|---|
-| `notebooks/01.0-kl-data-exploration.ipynb` | Exploration initiale du jeu de données |
-| `notebooks/02.0-kl-duplicates-analysis.ipynb` | Analyse et règle de déduplication |
-| `notebooks/03.0-kl-feature-extraction.ipynb` | Qualité des images, prétraitement et extraction des features |
-| `notebooks/04.0-kl-unsupervised-analysis.ipynb` | Découpage, réduction de dimension, clustering et labels faibles |
+| `notebooks/01.01-kl-data-exploration.ipynb` | Exploration initiale du jeu de données |
+| `notebooks/02.01-kl-data-cleaning.ipynb` | Analyse et règle de déduplication |
+| `notebooks/02.02-kl-feature-extraction.ipynb` | Qualité des images, prétraitement et extraction des features |
+| `notebooks/03.01-kl-unsupervised-analysis.ipynb` | Découpage, réduction de dimension, clustering et labels faibles |
 
 ### Consulter la documentation
 

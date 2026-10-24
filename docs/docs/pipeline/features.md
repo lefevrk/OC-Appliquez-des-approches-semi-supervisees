@@ -1,6 +1,6 @@
 # Extraction des features
 
-Notebook : `notebooks/03.0-kl-feature-extraction.ipynb`
+Notebook : `notebooks/02.02-kl-feature-extraction.ipynb`
 
 L'extraction transforme chaque image du manifeste en **vecteurs de caractéristiques**, grâce à un modèle pré-entraîné, pour l'analyse non supervisée de l'étape suivante. Elle est implémentée dans `brain_mri.features`.
 

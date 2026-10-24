@@ -1,6 +1,6 @@
 # Analyse non supervisée
 
-Notebook : `notebooks/04.0-kl-unsupervised-analysis.ipynb`
+Notebook : `notebooks/03.01-kl-unsupervised-analysis.ipynb`
 
 Les features de l'étape précédente servent à **regrouper les images**, puis à attribuer un **label faible** aux images non annotées. Le découpage est implémenté dans `brain_mri.dataset`, la standardisation et la PCA dans `brain_mri.modeling.preprocessing`, le clustering et les labels faibles dans `brain_mri.modeling.unsupervised`. Les labels faibles se produisent avec `make unsupervised`.
 

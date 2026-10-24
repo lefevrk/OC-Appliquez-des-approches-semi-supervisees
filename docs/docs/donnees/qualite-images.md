@@ -1,6 +1,6 @@
 # Qualité des images
 
-Notebook : `notebooks/03.0-kl-feature-extraction.ipynb` (section 2)
+Notebook : `notebooks/02.02-kl-feature-extraction.ipynb` (section 2)
 
 Les notebooks précédents ont vérifié que les fichiers sont lisibles et homogènes. Cette page regarde le **contenu** des images : y a-t-il des particularités qui pourraient fausser la suite ?
 

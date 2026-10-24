@@ -23,11 +23,11 @@ app = typer.Typer()
 IMAGE_PATTERN = "*.jpg"
 
 # Détection des quasi-doublons : seuil choisi par inspection visuelle des
-# paires dans `notebooks/02.0-kl-duplicates-analysis.ipynb`.
+# paires dans `notebooks/02.01-kl-data-cleaning.ipynb`.
 THUMBNAIL_SIZE = 32
 NEAR_DUPLICATE_THRESHOLD = 0.15
 
-# Images retirées à la main, car inexploitables (cf. notebook 03.0). Le fichier
+# Images retirées à la main, car inexploitables (cf. notebook 02.02). Le fichier
 # brut n'est jamais modifié : l'image est seulement exclue du manifeste.
 EXCLUDED_IMAGES: dict[str, str] = {
     "ca4c389b-8e9b-40d0-b149-1c81934ea251": (
