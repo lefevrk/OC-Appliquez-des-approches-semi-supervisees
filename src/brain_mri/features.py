@@ -5,7 +5,7 @@ import time
 from loguru import logger
 import numpy as np
 import pandas as pd
-from PIL import Image, ImageOps
+from PIL import Image
 import torch
 from torch import nn
 from torch.utils.data import DataLoader, Dataset
@@ -14,15 +14,18 @@ from torchvision.models import ResNet50_Weights, resnet50
 from torchvision.models.feature_extraction import create_feature_extractor
 import typer
 
-from brain_mri.config import INTERIM_DATA_DIR, PROCESSED_DATA_DIR
+from brain_mri.config import (
+    BATCH_SIZE,
+    IMAGE_SIZE,
+    INTERIM_DATA_DIR,
+    PROCESSED_DATA_DIR,
+)
 from brain_mri.dataset import read_manifest
 
 app = typer.Typer()
 
 MODEL_NAME = "resnet50"
-EXTRACTION_LAYERS = ("layer3", "layer4")
-IMAGE_SIZE = 224
-BATCH_SIZE = 32
+EXTRACTION_LAYERS = ("layer4",)
 
 # Statistiques d'ImageNet, reprises des transformations officielles des poids.
 _IMAGENET = ResNet50_Weights.DEFAULT.transforms()
@@ -51,7 +54,12 @@ def preprocess_rgb(image: Image.Image) -> torch.Tensor:
 
 
 def preprocess_gray(image: Image.Image) -> torch.Tensor:
-    """Variante de comparaison : niveaux de gris recopiés sur trois canaux.
+    """Prétraitement retenu : niveaux de gris recopiés sur trois canaux.
+
+    La conversion en niveaux de gris supprime les artefacts de couleur (par
+    exemple les bandeaux de texte colorés), qui ne portent aucune information
+    médicale. Le canal gris est recopié sur trois canaux, car le ResNet attend
+    du RGB.
 
     Args:
         image: Image à préparer.
@@ -60,25 +68,6 @@ def preprocess_gray(image: Image.Image) -> torch.Tensor:
         Un tenseur normalisé de forme (3, 224, 224).
     """
     return _to_model_input(image.convert("L").convert("RGB"))
-
-
-def preprocess_equalized(image: Image.Image) -> torch.Tensor:
-    """Prétraitement retenu : niveaux de gris puis égalisation d'histogramme.
-
-    La conversion en niveaux de gris supprime les artefacts de couleur et
-    l'égalisation gomme les différences globales de luminosité et de contraste,
-    deux indices qui permettraient de deviner le label sans regarder la
-    pathologie. L'égalisation est appliquée en pleine résolution, avant le
-    redimensionnement.
-
-    Args:
-        image: Image à préparer.
-
-    Returns:
-        Un tenseur normalisé de forme (3, 224, 224).
-    """
-    equalized = ImageOps.equalize(image.convert("L"))
-    return _to_model_input(equalized.convert("RGB"))
 
 
 class ManifestImages(Dataset):
@@ -140,7 +129,7 @@ def extract_features(
     extractor: nn.Module,
     filepaths: Iterable[Path],
     device: torch.device | None = None,
-    transform: Callable[[Image.Image], torch.Tensor] = preprocess_equalized,
+    transform: Callable[[Image.Image], torch.Tensor] = preprocess_gray,
     batch_size: int = BATCH_SIZE,
 ) -> dict[str, np.ndarray]:
     """Extrait un vecteur par image et par couche (average pooling global).

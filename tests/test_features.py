@@ -13,7 +13,6 @@ from brain_mri.features import (
     ManifestImages,
     extract_features,
     load_features,
-    preprocess_equalized,
     preprocess_gray,
     preprocess_rgb,
     save_features,
@@ -57,7 +56,7 @@ def image_paths(tmp_path: Path) -> list[Path]:
 
 
 @pytest.mark.parametrize(
-    "preprocess", [preprocess_rgb, preprocess_gray, preprocess_equalized]
+    "preprocess", [preprocess_rgb, preprocess_gray]
 )
 def test_preprocess_returns_a_model_input(preprocess):
     tensor = preprocess(_gradient_image())
@@ -79,21 +78,8 @@ def test_preprocess_gray_removes_color():
     assert not torch.allclose(rgb[0], rgb[1], atol=1e-2)
 
 
-def test_equalization_removes_global_brightness_differences():
-    bright, dark = _gradient_image(1.0), _gradient_image(0.4)
-
-    gap_gray = (preprocess_gray(bright) - preprocess_gray(dark)).abs().mean()
-    gap_equalized = (
-        (preprocess_equalized(bright) - preprocess_equalized(dark))
-        .abs()
-        .mean()
-    )
-
-    assert gap_equalized < 0.1 * gap_gray
-
-
 def test_manifest_images_applies_the_transform(image_paths: list[Path]):
-    dataset = ManifestImages(image_paths, preprocess_equalized)
+    dataset = ManifestImages(image_paths, preprocess_gray)
 
     assert len(dataset) == 5
     assert dataset[0].shape == (3, IMAGE_SIZE, IMAGE_SIZE)
@@ -101,12 +87,12 @@ def test_manifest_images_applies_the_transform(image_paths: list[Path]):
 
 def test_extract_features_pools_each_layer_in_order(image_paths: list[Path]):
     features = extract_features(
-        FakeExtractor(), image_paths, transform=preprocess_equalized, batch_size=2
+        FakeExtractor(), image_paths, transform=preprocess_gray, batch_size=2
     )
 
     channel_means = np.array(
         [
-            preprocess_equalized(Image.open(path))[0].mean().item()
+            preprocess_gray(Image.open(path))[0].mean().item()
             for path in image_paths
         ]
     )
