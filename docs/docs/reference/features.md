@@ -7,14 +7,12 @@ Prétraitement des images et extraction de caractéristiques avec un ResNet50 pr
 | Nom | Valeur | Rôle |
 |---|---|---|
 | `MODEL_NAME` | `"resnet50"` | Nom du modèle, utilisé dans le nom des fichiers produits |
-| `EXTRACTION_LAYERS` | `("layer3", "layer4")` | Couches du ResNet50 dont on extrait les features |
+| `EXTRACTION_LAYERS` | `("layer4",)` | Couche du ResNet50 dont on extrait les features |
 | `IMAGE_SIZE` | `224` | Côté des images en entrée du modèle, en pixels |
 | `BATCH_SIZE` | `32` | Nombre d'images par lot |
 | `IMAGENET_MEAN`, `IMAGENET_STD` | statistiques d'ImageNet | Normalisation, reprise des transformations officielles des poids |
 
 ## Prétraitement
-
-::: brain_mri.features.preprocess_equalized
 
 ::: brain_mri.features.preprocess_gray
 

@@ -6,9 +6,9 @@ Mesure de l'accord entre clusters et labels, attribution de labels faibles avec 
 
 | Nom | Valeur | Rôle |
 |---|---|---|
-| `REFERENCE_LAYER` | `"layer3"` | Couche dont les features servent aux labels faibles |
+| `REFERENCE_LAYER` | `"layer4"` | Couche dont les features servent aux labels faibles |
 | `N_CLUSTERS` | `2` | Nombre de clusters de K-Means, comme de classes |
-| `NOISE_LABEL` | `-1` | Cluster du bruit (DBSCAN, HDBSCAN) |
+| `NOISE_LABEL` | `-1` | Cluster du bruit (DBSCAN) |
 | `CLASS_CODES` | `cancer` : 1, `normal` : 0 | Codage des labels forts |
 | `CONFIDENCE_LEVEL` | `0.95` | Niveau des intervalles de confiance |
 

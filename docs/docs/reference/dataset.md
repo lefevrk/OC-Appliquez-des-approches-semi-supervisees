@@ -9,11 +9,11 @@ Chargement, déduplication et manifeste des données d'IRM. Le flux d'ensemble e
 | `IMAGE_PATTERN` | `"*.jpg"` | Motif des fichiers image recherchés |
 | `DATA_SOURCES` | `sans_label`, `cancer`, `normal` | Sous-dossier de `data/raw/` et label de chaque sous-ensemble |
 | `INVENTORY_COLUMNS` | 6 colonnes | Colonnes de la table produite par `build_inventory` |
-| `REMOVED_COLUMNS` | 6 colonnes | Colonnes du rapport des suppressions |
-| `THUMBNAIL_SIZE` | `32` | Côté des miniatures utilisées pour les quasi-doublons, en pixels |
-| `NEAR_DUPLICATE_THRESHOLD` | `0.15` | Distance maximale entre miniatures pour un quasi-doublon |
-| `TEST_SIZE` | `30` | Nombre d'images annotées réservées au test |
-| `VALIDATION_SIZE` | `16` | Nombre d'images annotées réservées à la validation |
+| `REMOVED_COLUMNS` | 7 colonnes | Colonnes du rapport des suppressions |
+| `EXCLUDED_IMAGES` | 1 image | Images exclues à la main, car inexploitables, avec la raison |
+| `THUMBNAIL_SIZE` | `64` | Côté des miniatures utilisées pour les quasi-doublons, en pixels |
+| `NEAR_DUPLICATE_THRESHOLD` | `0.02` | Écart quadratique moyen (RMS) maximal entre miniatures pour un quasi-doublon, pixels dans [0, 1] |
+| `ORIENTATIONS` | 8 symétries du carré | Orientations essayées pour chaque image : rotations de 0°, 90°, 180°, 270°, avec ou sans miroir |
 | `SPLIT_RANDOM_STATE` | `42` | Graine du découpage |
 | `SPLIT_NAMES` | `train`, `validation`, `test` | Valeurs possibles de la colonne `split` |
 
@@ -27,11 +27,17 @@ Chargement, déduplication et manifeste des données d'IRM. Le flux d'ensemble e
 
 ::: brain_mri.dataset.add_file_hash
 
+Les tailles du test (`TEST_SIZE`) et de la validation (`VALIDATION_SIZE`) sont dans [`brain_mri.config`](config.md).
+
 ## Déduplication
 
 ::: brain_mri.dataset.deduplicate_exact
 
 ::: brain_mri.dataset.load_thumbnail
+
+::: brain_mri.dataset.NearDuplicateSearch
+
+::: brain_mri.dataset.nearest_neighbors
 
 ::: brain_mri.dataset.find_near_duplicate_pairs
 
