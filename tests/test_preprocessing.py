@@ -2,7 +2,12 @@ import numpy as np
 import pytest
 from sklearn.decomposition import PCA
 
-from brain_mri.modeling.preprocessing import reduce_with_pca, standardize
+from brain_mri.modeling.preprocessing import (
+    fit_pca,
+    fit_standardizer,
+    reduce_with_pca,
+    standardize,
+)
 
 N_FIT = 60
 
@@ -73,6 +78,16 @@ def test_reduce_with_pca_returns_the_requested_components(
     assert reduced.shape == (len(features), 3)
 
 
+def test_fit_pca_keeps_the_smallest_number_of_components_for_a_variance(
+    features: np.ndarray, fit_mask: np.ndarray
+):
+    pca = fit_pca(features, fit_mask, n_components=0.9)
+    cumulative = np.cumsum(pca.explained_variance_ratio_)
+
+    assert cumulative[-1] >= 0.9
+    assert pca.n_components_ == 1 or cumulative[-2] < 0.9
+
+
 def test_reduce_with_pca_is_fitted_on_the_mask_only(
     features: np.ndarray, fit_mask: np.ndarray
 ):
@@ -92,3 +107,52 @@ def test_reduce_with_pca_is_reproducible(
     second = reduce_with_pca(features, fit_mask, n_components=3)
 
     np.testing.assert_array_equal(first, second)
+
+
+def test_fit_standardizer_learns_from_the_fit_images_only(
+    features: np.ndarray, fit_mask: np.ndarray
+):
+    scaler = fit_standardizer(features, fit_mask)
+
+    np.testing.assert_allclose(scaler.mean_, features[fit_mask].mean(axis=0))
+    np.testing.assert_allclose(
+        scaler.scale_, features[fit_mask].std(axis=0), rtol=1e-6
+    )
+
+
+def test_standardize_applies_the_fitted_standardizer(
+    features: np.ndarray, fit_mask: np.ndarray
+):
+    scaler = fit_standardizer(features, fit_mask)
+
+    np.testing.assert_allclose(
+        standardize(features, fit_mask), scaler.transform(features)
+    )
+
+
+def test_fit_pca_learns_from_the_fit_images_only(
+    features: np.ndarray, fit_mask: np.ndarray
+):
+    pca = fit_pca(features, fit_mask, n_components=3)
+
+    assert pca.components_.shape == (3, features.shape[1])
+    np.testing.assert_allclose(pca.mean_, features[fit_mask].mean(axis=0))
+
+
+def test_reduce_with_pca_applies_the_fitted_pca(
+    features: np.ndarray, fit_mask: np.ndarray
+):
+    pca = fit_pca(features, fit_mask, n_components=3)
+
+    np.testing.assert_allclose(
+        reduce_with_pca(features, fit_mask, n_components=3),
+        pca.transform(features),
+    )
+
+
+@pytest.mark.parametrize("fit", [fit_standardizer, fit_pca])
+def test_fit_functions_reject_an_invalid_mask(features: np.ndarray, fit):
+    with pytest.raises(ValueError):
+        fit(features, np.zeros(len(features), dtype=bool))
+    with pytest.raises(ValueError):
+        fit(features, np.ones(3, dtype=bool))
