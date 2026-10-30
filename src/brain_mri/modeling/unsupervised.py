@@ -15,7 +15,7 @@ from sklearn.metrics import (
 )
 import typer
 
-from brain_mri.config import INTERIM_DATA_DIR, PROCESSED_DATA_DIR
+from brain_mri.config import INTERIM_DATA_DIR, N_CLUSTERS, PROCESSED_DATA_DIR
 from brain_mri.dataset import read_manifest, read_split
 from brain_mri.features import MODEL_NAME, load_features
 from brain_mri.modeling.preprocessing import (
@@ -26,8 +26,7 @@ from brain_mri.modeling.preprocessing import (
 
 app = typer.Typer()
 
-REFERENCE_LAYER = "layer3"
-N_CLUSTERS = 2
+REFERENCE_LAYER = "layer4"
 NOISE_LABEL = -1
 
 # Codage des labels forts : 1 = cancer, 0 = normal. Les images non annotées
@@ -280,7 +279,11 @@ def main(
     image_ids, features = load_features(
         features_dir / f"features_{MODEL_NAME}_{layer}.npz"
     )
-    assert (image_ids == manifest["image_id"].to_numpy()).all()
+    if not (image_ids == manifest["image_id"].to_numpy()).all():
+        raise ValueError(
+            "Les features ne sont pas alignées sur le manifeste : "
+            "relancer `make features`."
+        )
 
     reduced = reduce_with_pca(standardize(features, is_train), is_train)
     train_space = reduced[is_train]

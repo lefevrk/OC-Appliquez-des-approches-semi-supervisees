@@ -2,8 +2,9 @@ import numpy as np
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 
-RANDOM_STATE = 42
-N_COMPONENTS = 50
+from brain_mri.config import N_COMPONENTS, SEED
+
+RANDOM_STATE = SEED
 
 
 def _check_fit_mask(features: np.ndarray, fit_mask: np.ndarray) -> None:
@@ -15,6 +16,26 @@ def _check_fit_mask(features: np.ndarray, fit_mask: np.ndarray) -> None:
         )
     if not fit_mask.any():
         raise ValueError("Le masque d'ajustement ne contient aucune image.")
+
+
+def fit_standardizer(
+    features: np.ndarray, fit_mask: np.ndarray
+) -> StandardScaler:
+    """Ajuste un `StandardScaler` sur les images de `fit_mask` uniquement.
+
+    Args:
+        features: Matrice (images, dimensions).
+        fit_mask: Masque booléen des images qui servent à l'ajustement.
+
+    Returns:
+        Le `StandardScaler` ajusté, utilisable sur toutes les images.
+
+    Raises:
+        ValueError: Si le masque n'a pas une valeur par image, ou n'en
+            sélectionne aucune.
+    """
+    _check_fit_mask(features, fit_mask)
+    return StandardScaler().fit(features[fit_mask])
 
 
 def standardize(features: np.ndarray, fit_mask: np.ndarray) -> np.ndarray:
@@ -35,9 +56,34 @@ def standardize(features: np.ndarray, fit_mask: np.ndarray) -> np.ndarray:
         ValueError: Si le masque n'a pas une valeur par image, ou n'en
             sélectionne aucune.
     """
+    return fit_standardizer(features, fit_mask).transform(features)
+
+
+def fit_pca(
+    features: np.ndarray,
+    fit_mask: np.ndarray,
+    n_components: int = N_COMPONENTS,
+    random_state: int = RANDOM_STATE,
+) -> PCA:
+    """Ajuste une PCA sur les images de `fit_mask` uniquement.
+
+    Args:
+        features: Matrice (images, dimensions), en général déjà standardisée.
+        fit_mask: Masque booléen des images qui servent à l'ajustement.
+        n_components: Nombre de composantes conservées.
+        random_state: Graine du solveur, pour un résultat reproductible.
+
+    Returns:
+        La PCA ajustée, utilisable sur toutes les images.
+
+    Raises:
+        ValueError: Si le masque n'a pas une valeur par image, ou n'en
+            sélectionne aucune.
+    """
     _check_fit_mask(features, fit_mask)
-    scaler = StandardScaler().fit(features[fit_mask])
-    return scaler.transform(features)
+    return PCA(n_components=n_components, random_state=random_state).fit(
+        features[fit_mask]
+    )
 
 
 def reduce_with_pca(
@@ -64,7 +110,6 @@ def reduce_with_pca(
         ValueError: Si le masque n'a pas une valeur par image, ou n'en
             sélectionne aucune.
     """
-    _check_fit_mask(features, fit_mask)
-    pca = PCA(n_components=n_components, random_state=random_state)
-    pca.fit(features[fit_mask])
-    return pca.transform(features)
+    return fit_pca(features, fit_mask, n_components, random_state).transform(
+        features
+    )
