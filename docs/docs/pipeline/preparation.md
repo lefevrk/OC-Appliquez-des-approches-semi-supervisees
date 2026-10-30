@@ -26,7 +26,8 @@ flowchart LR
 | `build_inventory` | Une ligne par image : identifiant, chemin, sous-ensemble, label, taille |
 | `add_file_hash` | Ajoute l'empreinte SHA-256 de chaque fichier |
 | `deduplicate_exact` | Garde une copie par contenu binaire identique |
-| `find_near_duplicate_pairs` | Repère les paires dont les miniatures sont quasi identiques |
+| `nearest_neighbors` | Trouve la plus proche voisine de chaque image, dans les 8 orientations (rotations et miroirs) |
+| `find_near_duplicate_pairs` | Repère les paires dont les miniatures sont quasi identiques, retournées ou pivotées comprises |
 | `deduplicate_near` | Retire un membre de chaque paire de quasi-doublons |
 | `deduplicate` | Exclut les images de `EXCLUDED_IMAGES`, puis enchaîne les deux déduplications et renvoie le manifeste et le rapport |
 | `write_manifest`, `read_manifest` | Écrivent et relisent le manifeste avec des chemins relatifs |
@@ -61,7 +62,8 @@ Une ligne par image retirée.
 | `image_id`, `subset` | L'image retirée |
 | `kept_image_id`, `kept_subset` | L'image conservée à sa place |
 | `reason` | `excluded` (exclusion manuelle), `exact` ou `near` |
-| `distance` | Distance entre miniatures (0 pour un doublon exact, vide pour une exclusion) |
+| `distance` | Écart quadratique moyen (RMS) entre miniatures, pixels dans [0, 1] (0 pour un doublon exact, vide pour une exclusion) |
+| `transform` | Pour un quasi-doublon, l'orientation (`identity`, `flip_h`, `rot180`, `flip_v`...) qui rattache l'image retirée à l'image conservée |
 
 ### Découpage : `data/processed/split.csv`
 
@@ -76,9 +78,9 @@ Le test et la validation sont tirés **parmi les images annotées uniquement**, 
 
 | Jeu | Images | dont `cancer` | dont `normal` | dont non annotées |
 |---|---:|---:|---:|---:|
-| `train` | 1 340 | 27 | 25 | 1 288 |
-| `validation` | 16 | 8 | 8 | 0 |
-| `test` | 30 | 15 | 15 | 0 |
+| `train` | 1 262 | 35 | 33 | 1 194 |
+| `validation` | 14 | 7 | 7 | 0 |
+| `test` | 15 | 8 | 7 | 0 |
 
 Les images non annotées ne forment aucune classe : elles servent à l'apprentissage non supervisé. Les trois jeux sont définis avant toute transformation, pour que le test ne participe à aucun ajustement.
 
@@ -92,8 +94,9 @@ Les images non annotées ne forment aucune classe : elles servent à l'apprentis
 | Brut | 1 506 |
 | Retirée (exclusion manuelle) | 1 |
 | Retirées (doublons exacts) | 96 |
-| Retirées (quasi-doublons) | 23 |
-| **Manifeste** | **1 386** |
+| Retirées (quasi-doublons, 8 orientations) | 118 |
+| **Manifeste** | **1 291** |
+| dont annotées | 97 (50 `cancer`, 47 `normal`) |
 
 ## Options de la commande
 
@@ -103,7 +106,7 @@ uv run python -m brain_mri.dataset \
     --output-path data/interim/manifest.csv \
     --report-path reports/removed_duplicates.csv \
     --split-path data/processed/split.csv \
-    --near-duplicate-threshold 0.15 \
-    --test-size 30 \
-    --validation-size 16
+    --near-duplicate-threshold 0.02 \
+    --test-size 15 \
+    --validation-size 14
 ```

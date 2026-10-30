@@ -1,13 +1,13 @@
 # Module `brain_mri.features`
 
-Prétraitement des images et extraction de caractéristiques avec un ResNet50 pré-entraîné. Le détail du flux est décrit dans la page [Extraction des features](../pipeline/features.md).
+Prétraitement des images et extraction de caractéristiques avec un ResNet18 pré-entraîné. Le détail du flux est décrit dans la page [Extraction des features](../pipeline/features.md).
 
 ## Constantes
 
 | Nom | Valeur | Rôle |
 |---|---|---|
-| `MODEL_NAME` | `"resnet50"` | Nom du modèle, utilisé dans le nom des fichiers produits |
-| `EXTRACTION_LAYERS` | `("layer3", "layer4")` | Couches du ResNet50 dont on extrait les features |
+| `MODEL_NAME` | `"resnet18"` | Nom du modèle, utilisé dans le nom des fichiers produits |
+| `EXTRACTION_LAYERS` | `("layer3", "layer4")` | Couches du ResNet18 dont on extrait les features |
 | `IMAGE_SIZE` | `224` | Côté des images en entrée du modèle, en pixels |
 | `BATCH_SIZE` | `32` | Nombre d'images par lot |
 | `IMAGENET_MEAN`, `IMAGENET_STD` | statistiques d'ImageNet | Normalisation, reprise des transformations officielles des poids |

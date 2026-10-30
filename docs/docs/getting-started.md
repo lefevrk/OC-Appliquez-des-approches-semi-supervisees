@@ -49,7 +49,7 @@ uv run python -m brain_mri.dataset --help
 make features
 ```
 
-La commande lit `data/interim/manifest.csv` et écrit, dans `data/processed/`, un fichier par couche du ResNet50 : `features_resnet50_layer3.npz` et `features_resnet50_layer4.npz`. Les poids du modèle sont téléchargés au premier lancement. Les options se listent avec `--help`.
+La commande lit `data/interim/manifest.csv` et écrit, dans `data/processed/`, un fichier par couche du ResNet18 : `features_resnet18_layer3.npz` et `features_resnet18_layer4.npz`. Les poids du modèle sont téléchargés au premier lancement. Les options se listent avec `--help`.
 
 !!! note
     `uv sync` installe PyTorch, dont le téléchargement est volumineux.
@@ -60,7 +60,17 @@ La commande lit `data/interim/manifest.csv` et écrit, dans `data/processed/`, u
 make unsupervised
 ```
 
-La commande lit le manifeste, le découpage et les features de `layer3`, ajuste la standardisation, la PCA et K-Means sur l'entraînement, puis écrit `data/processed/weak_labels.csv` : un label faible (`cancer` ou `normal`) et une confiance pour chaque image non annotée. Elle suppose que `make data` et `make features` ont été lancés.
+La commande lit le manifeste, le découpage et les features de `layer4`, ajuste la standardisation, la PCA et K-Means sur l'entraînement, puis écrit `data/processed/weak_labels.csv` : un label faible (`cancer` ou `normal`) et une confiance pour chaque image non annotée. Elle suppose que `make data` et `make features` ont été lancés.
+
+## Suivre les expériences
+
+Les clusterings du notebook `03.01` sont enregistrés dans MLflow, en local (`mlflow.db` et `mlruns/`, ignorés par git). Pour consulter les runs :
+
+```bash
+make mlflow-ui
+```
+
+L'interface s'ouvre sur `http://127.0.0.1:5001`.
 
 ## Relire le manifeste
 

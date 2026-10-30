@@ -10,22 +10,25 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
-from torchvision.models import ResNet50_Weights, resnet50
+from torchvision.models import ResNet18_Weights, resnet18
 from torchvision.models.feature_extraction import create_feature_extractor
 import typer
 
-from brain_mri.config import INTERIM_DATA_DIR, PROCESSED_DATA_DIR
+from brain_mri.config import (
+    BATCH_SIZE,
+    IMAGE_SIZE,
+    INTERIM_DATA_DIR,
+    PROCESSED_DATA_DIR,
+)
 from brain_mri.dataset import read_manifest
 
 app = typer.Typer()
 
-MODEL_NAME = "resnet50"
+MODEL_NAME = "resnet18"
 EXTRACTION_LAYERS = ("layer3", "layer4")
-IMAGE_SIZE = 224
-BATCH_SIZE = 32
 
 # Statistiques d'ImageNet, reprises des transformations officielles des poids.
-_IMAGENET = ResNet50_Weights.DEFAULT.transforms()
+_IMAGENET = ResNet18_Weights.DEFAULT.transforms()
 IMAGENET_MEAN = list(_IMAGENET.mean)
 IMAGENET_STD = list(_IMAGENET.std)
 
@@ -116,18 +119,18 @@ def load_extractor(
     device: torch.device,
     layers: tuple[str, ...] = EXTRACTION_LAYERS,
 ) -> nn.Module:
-    """Charge un ResNet50 pré-entraîné, gelé, qui renvoie les couches voulues.
+    """Charge un ResNet18 pré-entraîné, gelé, qui renvoie les couches voulues.
 
     Les poids sont téléchargés au premier appel.
 
     Args:
         device: Appareil de calcul.
-        layers: Noms des couches du ResNet50 à extraire.
+        layers: Noms des couches du ResNet18 à extraire.
 
     Returns:
         Un module qui renvoie un dictionnaire couche -> cartes de features.
     """
-    backbone = resnet50(weights=ResNet50_Weights.DEFAULT).eval()
+    backbone = resnet18(weights=ResNet18_Weights.DEFAULT).eval()
     extractor = create_feature_extractor(
         backbone, return_nodes={name: name for name in layers}
     )

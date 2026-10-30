@@ -23,7 +23,7 @@ If applicable, add screenshots or the relevant traceback / log lines to help exp
 **Environment (please complete the following information):**
 - OS: [e.g. macOS 15, Ubuntu 24.04]
 - Python version: [e.g. 3.12]
-- Command or notebook: [e.g. `make data`, `notebooks/02.0-kl-duplicates-analysis.ipynb`]
+- Command or notebook: [e.g. `make data`, `notebooks/02.01-kl-data-cleaning.ipynb`]
 - Commit or branch: [e.g. `main`, `abc1234`]
 
 **Additional context**
