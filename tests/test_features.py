@@ -144,8 +144,8 @@ def test_save_and_load_features_round_trip(tmp_path: Path):
     paths = save_features(image_ids, features, tmp_path / "out")
 
     assert [path.name for path in paths] == [
-        "features_resnet50_layer3.npz",
-        "features_resnet50_layer4.npz",
+        "features_resnet18_layer3.npz",
+        "features_resnet18_layer4.npz",
     ]
     loaded_ids, loaded_matrix = load_features(paths[0])
     assert loaded_ids.tolist() == image_ids
