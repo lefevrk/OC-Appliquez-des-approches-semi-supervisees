@@ -1,6 +1,7 @@
 from pathlib import Path
 import shutil
 
+import numpy as np
 import pandas as pd
 from PIL import Image
 import pytest
@@ -9,6 +10,9 @@ from brain_mri.dataset import (
     DATA_SOURCES,
     EXCLUDED_IMAGES,
     INVENTORY_COLUMNS,
+    INVERSE_ORIENTATIONS,
+    ORIENTATIONS,
+    NearDuplicateSearch,
     REMOVED_COLUMNS,
     SPLIT_NAMES,
     THUMBNAIL_SIZE,
@@ -19,6 +23,7 @@ from brain_mri.dataset import (
     deduplicate_near,
     file_hash,
     find_near_duplicate_pairs,
+    nearest_neighbors,
     load_thumbnail,
     read_manifest,
     read_split,
@@ -27,8 +32,12 @@ from brain_mri.dataset import (
 )
 
 # Les images de test sont unies : deux nuances proches donnent des miniatures
-# à distance ~0,12 par niveau d'écart, bien en dessous de ce seuil de test.
-TEST_NEAR_THRESHOLD = 1.0
+# à distance (RMS) ~0,004 par niveau d'écart, bien en dessous de ce seuil.
+TEST_NEAR_THRESHOLD = 0.01
+
+# Seuil des copies retournées : la compression JPEG de petites images ajoute un
+# bruit léger, alors que deux images différentes sont à plus de 0,2.
+COPY_THRESHOLD = 0.05
 
 
 def _write_image(path: Path, color: int) -> None:
@@ -192,7 +201,12 @@ def test_find_near_duplicate_pairs_handles_tiny_inventory(
     pairs = find_near_duplicate_pairs(dirty_inventory.head(1))
 
     assert pairs.empty
-    assert list(pairs.columns) == ["image_id_a", "image_id_b", "distance"]
+    assert list(pairs.columns) == [
+        "image_id_a",
+        "image_id_b",
+        "distance",
+        "transform",
+    ]
 
 
 def test_deduplicate_near_prefers_labeled_copy(dirty_inventory: pd.DataFrame):
@@ -239,6 +253,8 @@ def test_deduplicate_report_explains_each_removal(
     assert removed.loc["p1", "subset"] == "sans_label"
     assert removed.loc["x1", "distance"] == 0
     assert 0 <= removed.loc["p1", "distance"] < TEST_NEAR_THRESHOLD
+    assert removed.loc["x1", "transform"] == "identity"
+    assert removed.loc["p1", "transform"] == "identity"
 
 
 def test_deduplicate_report_is_empty_without_duplicates(raw_dir: Path):
@@ -431,3 +447,270 @@ def test_split_round_trip_preserves_data(
     split.to_csv(split_path, index=False)
 
     pd.testing.assert_frame_equal(read_split(split_path), split)
+
+
+# --- Quasi-doublons retournés ou pivotés ---------------------------------------
+
+
+def _pattern(seed: int = 0, side: int = 32) -> np.ndarray:
+    """Image sans aucune symétrie : ses 8 orientations sont toutes différentes."""
+    rng = np.random.default_rng(seed)
+    pattern = rng.integers(0, 256, (side, side)).astype(np.uint8)
+    pattern[:8, :16] = 255
+    pattern[24:, 4:10] = 0
+    return pattern
+
+
+def _make_source_dirs(root: Path) -> None:
+    """Crée les sous-dossiers attendus par `build_inventory`."""
+    for relative_dir, _ in DATA_SOURCES.values():
+        (root / relative_dir).mkdir(parents=True, exist_ok=True)
+
+
+def _write_pattern(path: Path, pattern: np.ndarray) -> None:
+    Image.fromarray(pattern).save(path, quality=100)
+
+
+def _inventory_with_copy(
+    root: Path, orientation: str, copy_first: bool = False
+) -> pd.DataFrame:
+    """Une image `sans_label`, sa copie retournée ou pivotée, et une autre image."""
+    _make_source_dirs(root)
+    base = _pattern(seed=1)
+    copy_id, original_id = ("a", "b") if copy_first else ("b", "a")
+    _write_pattern(root / "sans_label" / f"{original_id}.jpg", base)
+    _write_pattern(
+        root / "sans_label" / f"{copy_id}.jpg",
+        np.ascontiguousarray(ORIENTATIONS[orientation](base)),
+    )
+    _write_pattern(root / "sans_label" / "z.jpg", _pattern(seed=2))
+    return add_file_hash(build_inventory(root))
+
+
+def test_orientations_are_the_eight_symmetries_of_the_square():
+    pattern = _pattern()
+
+    results = {
+        name: np.ascontiguousarray(orient(pattern)).tobytes()
+        for name, orient in ORIENTATIONS.items()
+    }
+
+    assert len(ORIENTATIONS) == 8
+    assert len(set(results.values())) == 8
+    assert results["identity"] == pattern.tobytes()
+
+
+@pytest.mark.parametrize("name", list(ORIENTATIONS))
+def test_inverse_orientation_undoes_each_orientation(name: str):
+    pattern = _pattern()
+
+    restored = ORIENTATIONS[INVERSE_ORIENTATIONS.get(name, name)](
+        ORIENTATIONS[name](pattern)
+    )
+
+    assert np.array_equal(restored, pattern)
+
+
+@pytest.mark.parametrize("copy_first", [False, True])
+@pytest.mark.parametrize("orientation", list(ORIENTATIONS))
+def test_find_near_duplicate_pairs_detects_every_orientation(
+    tmp_path: Path, orientation: str, copy_first: bool
+):
+    inventory = _inventory_with_copy(tmp_path, orientation, copy_first)
+
+    pairs = find_near_duplicate_pairs(inventory, COPY_THRESHOLD)
+
+    assert pairs[["image_id_a", "image_id_b"]].values.tolist() == [["a", "b"]]
+    assert pairs.loc[0, "distance"] < COPY_THRESHOLD
+
+
+@pytest.mark.parametrize("copy_first", [False, True])
+@pytest.mark.parametrize("orientation", list(ORIENTATIONS))
+def test_find_near_duplicate_pairs_gives_the_orientation_of_image_a(
+    tmp_path: Path, orientation: str, copy_first: bool
+):
+    inventory = _inventory_with_copy(tmp_path, orientation, copy_first)
+
+    pair = find_near_duplicate_pairs(inventory, COPY_THRESHOLD).iloc[0]
+
+    by_id = inventory.set_index("image_id")["filepath"]
+    first = load_thumbnail(by_id[pair["image_id_a"]]).reshape(
+        THUMBNAIL_SIZE, THUMBNAIL_SIZE
+    )
+    second = load_thumbnail(by_id[pair["image_id_b"]]).reshape(
+        THUMBNAIL_SIZE, THUMBNAIL_SIZE
+    )
+    oriented = ORIENTATIONS[pair["transform"]](first)
+    assert np.sqrt(np.mean((oriented - second) ** 2)) < COPY_THRESHOLD
+
+
+def test_find_near_duplicate_pairs_misses_a_flip_with_identity_only(
+    tmp_path: Path,
+):
+    inventory = _inventory_with_copy(tmp_path, "flip_h")
+
+    pairs = find_near_duplicate_pairs(
+        inventory,
+        COPY_THRESHOLD,
+        NearDuplicateSearch(
+            orientations={"identity": ORIENTATIONS["identity"]}
+        ),
+    )
+
+    assert pairs.empty
+
+
+def test_find_near_duplicate_pairs_ignores_distinct_images(tmp_path: Path):
+    _make_source_dirs(tmp_path)
+    for seed, name in enumerate("abc"):
+        _write_pattern(tmp_path / "sans_label" / f"{name}.jpg", _pattern(seed))
+
+    pairs = find_near_duplicate_pairs(
+        add_file_hash(build_inventory(tmp_path)), COPY_THRESHOLD
+    )
+
+    assert pairs.empty
+
+
+def test_find_near_duplicate_pairs_never_pairs_an_image_with_itself(
+    tmp_path: Path,
+):
+    _make_source_dirs(tmp_path)
+    symmetric = np.tile(_pattern()[:, :16], (1, 2))
+    symmetric = np.maximum(symmetric, symmetric[:, ::-1])
+    _write_pattern(tmp_path / "sans_label" / "a.jpg", symmetric)
+    _write_pattern(tmp_path / "sans_label" / "b.jpg", _pattern(seed=5))
+
+    pairs = find_near_duplicate_pairs(
+        add_file_hash(build_inventory(tmp_path)), threshold=np.inf
+    )
+
+    assert (pairs["image_id_a"] != pairs["image_id_b"]).all()
+
+
+@pytest.mark.parametrize("copy_first", [False, True])
+def test_deduplicate_removes_a_flipped_copy_and_reports_its_orientation(
+    tmp_path: Path, copy_first: bool
+):
+    inventory = _inventory_with_copy(tmp_path, "rot90", copy_first)
+
+    manifest, removed = deduplicate(inventory, COPY_THRESHOLD, excluded={})
+
+    assert sorted(manifest["image_id"]) == ["a", "z"]
+    assert removed["image_id"].tolist() == ["b"]
+    row = removed.iloc[0]
+    assert (row["reason"], row["kept_image_id"]) == ("near", "a")
+    by_id = inventory.set_index("image_id")["filepath"]
+    removed_image = load_thumbnail(by_id["b"]).reshape(
+        THUMBNAIL_SIZE, THUMBNAIL_SIZE
+    )
+    kept_image = load_thumbnail(by_id["a"]).reshape(
+        THUMBNAIL_SIZE, THUMBNAIL_SIZE
+    )
+    oriented = ORIENTATIONS[row["transform"]](removed_image)
+    assert np.sqrt(np.mean((oriented - kept_image) ** 2)) < COPY_THRESHOLD
+
+
+def test_deduplicate_report_marks_manual_exclusions_without_orientation(
+    dirty_inventory: pd.DataFrame,
+):
+    _, removed = deduplicate(
+        dirty_inventory, TEST_NEAR_THRESHOLD, excluded={"y1": "illisible"}
+    )
+
+    row = removed.set_index("image_id").loc["y1"]
+    assert row["reason"] == "excluded"
+    assert pd.isna(row["transform"])
+
+
+# --- Réglages de la recherche ---------------------------------------------------
+
+
+def test_rms_distance_does_not_depend_on_the_thumbnail_size(tmp_path: Path):
+    inventory = _inventory_with_copy(tmp_path, "flip_h")
+
+    distances = [
+        find_near_duplicate_pairs(
+            inventory, np.inf, NearDuplicateSearch(size)
+        ).loc[0, "distance"]
+        for size in (16, 32, 64)
+    ]
+
+    assert max(distances) - min(distances) < 0.02
+
+
+def test_euclidean_distance_is_the_rms_times_the_thumbnail_side(tmp_path: Path):
+    inventory = _inventory_with_copy(tmp_path, "rot180")
+    size = 32
+
+    rms = find_near_duplicate_pairs(
+        inventory, np.inf, NearDuplicateSearch(size, rms=True)
+    )
+    euclidean = find_near_duplicate_pairs(
+        inventory, np.inf, NearDuplicateSearch(size, rms=False)
+    )
+
+    np.testing.assert_allclose(euclidean["distance"], rms["distance"] * size)
+
+
+def test_deduplicate_near_uses_the_given_search(tmp_path: Path):
+    inventory = _inventory_with_copy(tmp_path, "flip_h")
+    identity_only = NearDuplicateSearch(
+        orientations={"identity": ORIENTATIONS["identity"]}
+    )
+
+    default = deduplicate_near(inventory, COPY_THRESHOLD)
+    restricted = deduplicate_near(inventory, COPY_THRESHOLD, identity_only)
+
+    assert len(default) == len(inventory) - 1
+    assert len(restricted) == len(inventory)
+
+
+def test_deduplicate_passes_the_search_to_the_near_duplicate_step(
+    tmp_path: Path,
+):
+    inventory = _inventory_with_copy(tmp_path, "flip_v")
+    identity_only = NearDuplicateSearch(
+        orientations={"identity": ORIENTATIONS["identity"]}
+    )
+
+    manifest, removed = deduplicate(
+        inventory, COPY_THRESHOLD, excluded={}, search=identity_only
+    )
+
+    assert len(manifest) == len(inventory)
+    assert removed.empty
+
+
+def test_nearest_neighbors_returns_one_row_per_image(tmp_path: Path):
+    inventory = _inventory_with_copy(tmp_path, "flip_h")
+
+    neighbors = nearest_neighbors(inventory)
+
+    assert sorted(neighbors["image_id"]) == sorted(inventory["image_id"])
+    assert (neighbors["image_id"] != neighbors["neighbor_id"]).all()
+    assert list(neighbors.columns) == [
+        "image_id",
+        "neighbor_id",
+        "distance",
+        "transform",
+    ]
+
+
+def test_nearest_neighbors_pairs_a_copy_with_its_flipped_original(
+    tmp_path: Path,
+):
+    inventory = _inventory_with_copy(tmp_path, "flip_h")
+
+    neighbors = nearest_neighbors(inventory).set_index("image_id")
+
+    assert neighbors.loc["a", "neighbor_id"] == "b"
+    assert neighbors.loc["b", "neighbor_id"] == "a"
+    assert neighbors.loc["a", "distance"] < COPY_THRESHOLD
+    assert neighbors.loc["a", "transform"] == "flip_h"
+
+
+def test_nearest_neighbors_handles_tiny_inventory(tmp_path: Path):
+    inventory = _inventory_with_copy(tmp_path, "flip_h").head(1)
+
+    assert nearest_neighbors(inventory).empty
