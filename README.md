@@ -248,11 +248,9 @@ make test          # Exécuter les tests
 │   │   ├── features.py          <- Extraction de caractéristiques visuelles
 │   │   ├── modeling
 │   │   │   ├── __init__.py
-│   │   │   ├── predict.py       <- Inférence avec les modèles entraînés
 │   │   │   ├── preprocessing.py <- Standardisation et PCA
 │   │   │   ├── train.py         <- Entraînement du CNN et mesure de ses performances
 │   │   │   └── unsupervised.py  <- Clustering, labels faibles et leur évaluation
-│   │   ├── plots.py             <- Création des visualisations
 │   │   └── quality.py           <- Descripteurs du contenu des images
 │   └── utils
 │       └── mlflow_utils.py      <- Suivi des expériences MLflow (appelé par les notebooks)
