@@ -59,6 +59,8 @@ Un jeu de données est enregistré avec le schéma MLflow (`log_dataset`) : MLfl
 
 ::: utils.mlflow_utils.log_sklearn_model
 
+Un modèle PyTorch s'enregistre avec un exemple d'entrée de **deux images au moins** : MLflow l'exporte avec `torch.export`, qui fixe la taille de lot à celle de l'exemple. Avec une seule image, le modèle enregistré échoue dès qu'on lui donne un lot plus grand.
+
 ::: utils.mlflow_utils.log_pytorch_model
 
 ## Consultation

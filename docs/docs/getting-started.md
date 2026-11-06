@@ -64,7 +64,7 @@ La commande lit le manifeste, le découpage et les features de `layer4`, ajuste 
 
 ## Suivre les expériences
 
-Les clusterings du notebook `03.01` sont enregistrés dans MLflow, en local (`mlflow.db` et `mlruns/`, ignorés par git). Pour consulter les runs :
+Les clusterings du notebook `03.01` et les entraînements du notebook `03.02` sont enregistrés dans MLflow, en local (`mlflow.db` et `mlruns/`, ignorés par git). Pour consulter les runs :
 
 ```bash
 make mlflow-ui
