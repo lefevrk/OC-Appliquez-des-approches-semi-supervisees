@@ -1,4 +1,4 @@
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 import hashlib
 from pathlib import Path
 from typing import NamedTuple
@@ -16,18 +16,61 @@ from brain_mri.config import (
     PROCESSED_DATA_DIR,
     RAW_DATA_DIR,
     REPORTS_DIR,
+    SEED,
+    TEST_SIZE,
+    VALIDATION_SIZE,
 )
 
 app = typer.Typer()
 
 IMAGE_PATTERN = "*.jpg"
 
-# Détection des quasi-doublons : seuil choisi par inspection visuelle des
-# paires dans `notebooks/02.0-kl-duplicates-analysis.ipynb`.
-THUMBNAIL_SIZE = 32
-NEAR_DUPLICATE_THRESHOLD = 0.15
+# Détection des quasi-doublons : miniatures en niveaux de gris, comparées dans
+# les 8 orientations. Le seuil est un écart quadratique moyen (RMS) entre
+# pixels dans [0, 1], choisi par revue visuelle des paires dans
+# `notebooks/02.01-kl-data-cleaning.ipynb`.
+THUMBNAIL_SIZE = 64
+NEAR_DUPLICATE_THRESHOLD = 0.02
 
-# Images retirées à la main, car inexploitables (cf. notebook 03.0). Le fichier
+# Les 8 symétries du carré, appliquées aux deux derniers axes d'un tableau
+# (une image ou un lot d'images).
+ORIENTATIONS: dict[str, Callable[[np.ndarray], np.ndarray]] = {
+    "identity": lambda a: a,
+    "rot90": lambda a: np.rot90(a, 1, axes=(-2, -1)),
+    "rot180": lambda a: np.rot90(a, 2, axes=(-2, -1)),
+    "rot270": lambda a: np.rot90(a, 3, axes=(-2, -1)),
+    "flip_h": lambda a: a[..., ::-1],
+    "flip_v": lambda a: a[..., ::-1, :],
+    "transpose": lambda a: np.swapaxes(a, -1, -2),
+    "anti_transpose": lambda a: np.rot90(
+        np.swapaxes(a, -1, -2), 2, axes=(-2, -1)
+    ),
+}
+# Orientation qui annule celle-ci : les six autres sont leur propre inverse.
+INVERSE_ORIENTATIONS = {"rot90": "rot270", "rot270": "rot90"}
+
+
+class NearDuplicateSearch(NamedTuple):
+    """Réglages de la recherche de quasi-doublons.
+
+    Attributes:
+        thumbnail_size: Côté des miniatures comparées, en pixels.
+        orientations: Orientations essayées pour chaque image, par nom.
+        rms: `True` pour mesurer l'écart quadratique moyen (RMS) entre
+            miniatures, indépendant de leur taille ; `False` pour la distance
+            euclidienne.
+    """
+
+    thumbnail_size: int = THUMBNAIL_SIZE
+    orientations: Mapping[str, Callable[[np.ndarray], np.ndarray]] = (
+        ORIENTATIONS
+    )
+    rms: bool = True
+
+
+DEFAULT_SEARCH = NearDuplicateSearch()
+
+# Images retirées à la main, car inexploitables (cf. notebook 02.01). Le fichier
 # brut n'est jamais modifié : l'image est seulement exclue du manifeste.
 EXCLUDED_IMAGES: dict[str, str] = {
     "ca4c389b-8e9b-40d0-b149-1c81934ea251": (
@@ -42,11 +85,9 @@ DATA_SOURCES: dict[str, tuple[Path, str | None]] = {
     "normal": (Path("avec_labels") / "normal", "normal"),
 }
 
-# Découpage des images annotées : le test et la validation sont tirés parmi
-# elles (stratifiés), toutes les autres images forment l'entraînement.
-TEST_SIZE = 30
-VALIDATION_SIZE = 16
-SPLIT_RANDOM_STATE = 42
+# Découpage des images annotées : les tailles du test et de la validation sont
+# dans `brain_mri.config`.
+SPLIT_RANDOM_STATE = SEED
 SPLIT_NAMES = ("train", "validation", "test")
 
 REMOVED_COLUMNS = [
@@ -56,6 +97,7 @@ REMOVED_COLUMNS = [
     "kept_subset",
     "reason",
     "distance",
+    "transform",
 ]
 
 INVENTORY_COLUMNS = [
@@ -169,52 +211,151 @@ def load_thumbnail(filepath: Path, size: int = THUMBNAIL_SIZE) -> np.ndarray:
     return np.asarray(thumbnail, dtype=np.float32).ravel() / 255
 
 
-def find_near_duplicate_pairs(
-    inventory: pd.DataFrame,
-    threshold: float = NEAR_DUPLICATE_THRESHOLD,
+def _nearest_by_orientation(
+    thumbnails: np.ndarray,
+    orientations: Mapping[str, Callable[[np.ndarray], np.ndarray]],
 ) -> pd.DataFrame:
-    """Repère les paires d'images dont les miniatures sont quasi identiques.
+    """Cherche la plus proche voisine de chaque image, orientations comprises.
 
-    Chaque image est comparée à son plus proche voisin (distance euclidienne
-    entre miniatures). Les doublons exacts doivent être retirés au préalable.
+    La miniature de chaque image est retournée ou pivotée, puis comparée aux
+    miniatures d'origine. Une image n'est jamais sa propre voisine, même quand
+    elle est presque symétrique.
+
+    Args:
+        thumbnails: Tableau (images, côté, côté) de miniatures dans [0, 1].
+        orientations: Orientations à essayer, par nom.
+
+    Returns:
+        Une ligne par image : `index_a`, `index_b` (sa voisine), `distance`
+        (euclidienne entre miniatures) et `transform` (orientation appliquée
+        à l'image A).
+    """
+    count = len(thumbnails)
+    index = NearestNeighbors(n_neighbors=2).fit(thumbnails.reshape(count, -1))
+    best = np.full(count, np.inf)
+    neighbor = np.full(count, -1)
+    transform = np.full(count, "", dtype=object)
+    for name, orient in orientations.items():
+        distances, found = index.kneighbors(
+            orient(thumbnails).reshape(count, -1)
+        )
+        # Le premier voisin est l'image elle-même, sauf si une autre miniature
+        # lui est strictement identique.
+        self_first = found[:, 0] == np.arange(count)
+        distance = np.where(self_first, distances[:, 1], distances[:, 0])
+        closest = np.where(self_first, found[:, 1], found[:, 0])
+        better = distance < best
+        best[better] = distance[better]
+        neighbor[better] = closest[better]
+        transform[better] = name
+    return pd.DataFrame(
+        {
+            "index_a": np.arange(count),
+            "index_b": neighbor,
+            "distance": best,
+            "transform": transform,
+        }
+    )
+
+
+def nearest_neighbors(
+    inventory: pd.DataFrame,
+    search: NearDuplicateSearch = DEFAULT_SEARCH,
+) -> pd.DataFrame:
+    """Cherche la plus proche voisine de chaque image.
+
+    Chaque image est comparée à ses voisines dans toutes les orientations de
+    `search` : avec les 8 symétries du carré, une copie retournée ou pivotée
+    est détectée comme une copie dans l'orientation d'origine. Les doublons
+    exacts doivent être retirés au préalable.
 
     Args:
         inventory: Table avec les colonnes `image_id` et `filepath`.
-        threshold: Distance en dessous de laquelle une paire est retenue.
+        search: Taille des miniatures, orientations et mesure de la distance.
 
     Returns:
-        Un DataFrame `image_id_a`, `image_id_b`, `distance`, avec
-            `image_id_a < image_id_b`, trié par distance croissante.
+        Une ligne par image : `image_id`, `neighbor_id`, `distance` (RMS ou
+        distance euclidienne, selon `search`) et `transform`, l'orientation à
+        appliquer à l'image pour retrouver sa voisine. Vide s'il y a moins de
+        deux images.
     """
-    columns = ["image_id_a", "image_id_b", "distance"]
+    columns = ["image_id", "neighbor_id", "distance", "transform"]
     if len(inventory) < 2:
         return pd.DataFrame(columns=columns)
 
+    size = search.thumbnail_size
     thumbnails = np.stack(
-        [load_thumbnail(path) for path in inventory["filepath"]]
+        [load_thumbnail(path, size) for path in inventory["filepath"]]
+    ).reshape(-1, size, size)
+    neighbors = _nearest_by_orientation(thumbnails, search.orientations)
+    # Le RMS est la distance euclidienne divisée par la racine du nombre de
+    # pixels, soit le côté de la miniature.
+    distance = (
+        neighbors["distance"] / size if search.rms else neighbors["distance"]
     )
-    distances, neighbors = (
-        NearestNeighbors(n_neighbors=2).fit(thumbnails).kneighbors(thumbnails)
+    ids = inventory["image_id"].to_numpy()
+    return pd.DataFrame(
+        {
+            "image_id": ids[neighbors["index_a"]],
+            "neighbor_id": ids[neighbors["index_b"]],
+            "distance": distance,
+            "transform": neighbors["transform"],
+        },
+        columns=columns,
     )
-    # Le premier voisin est l'image elle-même, sauf si une autre miniature
-    # lui est strictement identique.
-    is_self_first = neighbors[:, 0] == np.arange(len(inventory))
-    nearest = np.where(is_self_first, neighbors[:, 1], neighbors[:, 0])
-    nearest_distance = np.where(is_self_first, distances[:, 1], distances[:, 0])
 
-    image_ids = inventory["image_id"].to_numpy()
-    neighbor_ids = image_ids[nearest]
+
+def find_near_duplicate_pairs(
+    inventory: pd.DataFrame,
+    threshold: float = NEAR_DUPLICATE_THRESHOLD,
+    search: NearDuplicateSearch = DEFAULT_SEARCH,
+) -> pd.DataFrame:
+    """Repère les paires d'images quasi identiques.
+
+    Une paire réunit une image et sa plus proche voisine (voir
+    `nearest_neighbors`) ; elle n'est comptée qu'une fois, même si les deux
+    images sont voisines l'une de l'autre.
+
+    Args:
+        inventory: Table avec les colonnes `image_id` et `filepath`.
+        threshold: Distance en dessous de laquelle une paire est retenue, dans
+            l'unité de `search` (RMS ou distance euclidienne).
+        search: Taille des miniatures, orientations et mesure de la distance.
+
+    Returns:
+        Un DataFrame `image_id_a`, `image_id_b`, `distance`, `transform`, avec
+        `image_id_a < image_id_b`, trié par distance croissante. `transform`
+        est l'orientation à appliquer à l'image A pour retrouver l'image B.
+    """
+    columns = ["image_id_a", "image_id_b", "distance", "transform"]
+    neighbors = nearest_neighbors(inventory, search)
+    if neighbors.empty:
+        return pd.DataFrame(columns=columns)
+
+    swapped = (neighbors["image_id"] > neighbors["neighbor_id"]).to_numpy()
     pairs = pd.DataFrame(
         {
-            "image_id_a": np.minimum(image_ids, neighbor_ids),
-            "image_id_b": np.maximum(image_ids, neighbor_ids),
-            "distance": nearest_distance,
-        }
+            "image_id_a": np.where(
+                swapped, neighbors["neighbor_id"], neighbors["image_id"]
+            ),
+            "image_id_b": np.where(
+                swapped, neighbors["image_id"], neighbors["neighbor_id"]
+            ),
+            "distance": neighbors["distance"],
+            # Si les images changent de rôle, l'orientation s'inverse.
+            "transform": [
+                INVERSE_ORIENTATIONS.get(name, name) if flip else name
+                for name, flip in zip(
+                    neighbors["transform"], swapped, strict=True
+                )
+            ],
+        },
+        columns=columns,
     )
     return (
-        pairs.loc[pairs["distance"] < threshold]
-        .drop_duplicates(["image_id_a", "image_id_b"])
+        pairs[pairs["distance"] < threshold]
         .sort_values("distance")
+        .drop_duplicates(["image_id_a", "image_id_b"])
         .reset_index(drop=True)
     )
 
@@ -225,6 +366,7 @@ def _removal_report(
     kept_ids: list[str],
     reason: str,
     distances: float | list[float],
+    transforms: str | list[str] = "identity",
 ) -> pd.DataFrame:
     """Construit les lignes du rapport pour une étape de déduplication."""
     subsets = inventory.set_index("image_id")["subset"]
@@ -236,6 +378,7 @@ def _removal_report(
             "kept_subset": subsets.loc[kept_ids].to_numpy(),
             "reason": reason,
             "distance": distances,
+            "transform": transforms,
         },
         columns=REMOVED_COLUMNS,
     )
@@ -256,25 +399,39 @@ def _exact_removals(
     )
 
 
-def _near_removals(inventory: pd.DataFrame, threshold: float) -> pd.DataFrame:
+def _near_removals(
+    inventory: pd.DataFrame, threshold: float, search: NearDuplicateSearch
+) -> pd.DataFrame:
     """Décrit les images à retirer parmi les paires de quasi-doublons.
 
     Une image retirée n'apparaît qu'une fois, associée à la paire la plus
     proche. L'image conservée peut elle-même être retirée par une autre paire.
+    La colonne `transform` donne l'orientation à appliquer à l'image retirée
+    pour retrouver l'image conservée.
     """
-    pairs = find_near_duplicate_pairs(inventory, threshold)
+    pairs = find_near_duplicate_pairs(inventory, threshold, search)
     is_labeled = inventory.set_index("image_id")["is_labeled"]
 
     def rank(image_id: str) -> tuple[bool, str]:
         return (not is_labeled[image_id], image_id)
 
-    kept_ids, removed_ids = [], []
-    for image_id_a, image_id_b in zip(
-        pairs["image_id_a"], pairs["image_id_b"], strict=True
+    kept_ids, removed_ids, transforms = [], [], []
+    for image_id_a, image_id_b, transform in zip(
+        pairs["image_id_a"],
+        pairs["image_id_b"],
+        pairs["transform"],
+        strict=True,
     ):
         kept, removed = sorted((image_id_a, image_id_b), key=rank)
         kept_ids.append(kept)
         removed_ids.append(removed)
+        # `transform` s'applique à l'image A : si c'est l'image conservée,
+        # l'orientation de l'image retirée est l'inverse.
+        transforms.append(
+            transform
+            if removed == image_id_a
+            else INVERSE_ORIENTATIONS.get(transform, transform)
+        )
 
     report = _removal_report(
         inventory,
@@ -282,6 +439,7 @@ def _near_removals(inventory: pd.DataFrame, threshold: float) -> pd.DataFrame:
         kept_ids,
         reason="near",
         distances=pairs["distance"].tolist(),
+        transforms=transforms,
     )
     return report.drop_duplicates("image_id")
 
@@ -296,6 +454,7 @@ def _without(inventory: pd.DataFrame, image_ids: pd.Series) -> pd.DataFrame:
 def deduplicate_near(
     inventory: pd.DataFrame,
     threshold: float = NEAR_DUPLICATE_THRESHOLD,
+    search: NearDuplicateSearch = DEFAULT_SEARCH,
 ) -> pd.DataFrame:
     """Retire un des deux membres de chaque paire de quasi-doublons.
 
@@ -304,12 +463,16 @@ def deduplicate_near(
 
     Args:
         inventory: Table sans doublons exacts, avec `filepath`.
-        threshold: Distance maximale entre miniatures pour une paire.
+        threshold: Distance maximale entre miniatures pour une paire, dans
+            l'unité de `search`.
+        search: Taille des miniatures, orientations et mesure de la distance.
 
     Returns:
         L'inventaire sans quasi-doublons.
     """
-    return _without(inventory, _near_removals(inventory, threshold)["image_id"])
+    return _without(
+        inventory, _near_removals(inventory, threshold, search)["image_id"]
+    )
 
 
 class DeduplicationResult(NamedTuple):
@@ -318,10 +481,12 @@ class DeduplicationResult(NamedTuple):
     Attributes:
         manifest: Images conservées.
         removed: Une ligne par image retirée (`image_id`, `kept_image_id`,
-            `reason` valant `excluded`, `exact` ou `near`, `distance` entre
-            miniatures). Une image exclue à la main n'a ni image conservée ni
-            distance. Une image conservée à une étape peut être retirée à la
-            suivante : il faut alors suivre la chaîne `kept_image_id`.
+            `reason` valant `excluded`, `exact` ou `near`, `distance` RMS entre
+            miniatures, `transform` : orientation de l'image retirée pour
+            retrouver l'image conservée). Une image exclue à la main n'a ni
+            image conservée, ni distance, ni orientation. Une image conservée à
+            une étape peut être retirée à la suivante : il faut alors suivre la
+            chaîne `kept_image_id`.
     """
 
     manifest: pd.DataFrame
@@ -338,6 +503,7 @@ def _manual_removals(excluded: pd.DataFrame) -> pd.DataFrame:
             "kept_subset": pd.NA,
             "reason": "excluded",
             "distance": np.nan,
+            "transform": pd.NA,
         },
         columns=REMOVED_COLUMNS,
     )
@@ -347,6 +513,7 @@ def deduplicate(
     inventory: pd.DataFrame,
     near_duplicate_threshold: float = NEAR_DUPLICATE_THRESHOLD,
     excluded: Mapping[str, str] = EXCLUDED_IMAGES,
+    search: NearDuplicateSearch = DEFAULT_SEARCH,
 ) -> DeduplicationResult:
     """Exclut les images inexploitables, puis retire les doublons.
 
@@ -355,8 +522,10 @@ def deduplicate(
 
     Args:
         inventory: Table produite par `add_file_hash`.
-        near_duplicate_threshold: Seuil de distance des quasi-doublons.
+        near_duplicate_threshold: Seuil de distance des quasi-doublons, dans
+            l'unité de `search`.
         excluded: Identifiants des images à exclure, avec la raison.
+        search: Taille des miniatures, orientations et mesure de la distance.
 
     Returns:
         Le manifeste des images conservées et le rapport des suppressions.
@@ -364,7 +533,7 @@ def deduplicate(
     excluded_rows = inventory.loc[inventory["image_id"].isin(excluded)]
     inventory = _without(inventory, excluded_rows["image_id"])
     kept = deduplicate_exact(inventory)
-    near_removed = _near_removals(kept, near_duplicate_threshold)
+    near_removed = _near_removals(kept, near_duplicate_threshold, search)
     removed = (
         pd.concat(
             [

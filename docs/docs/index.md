@@ -11,21 +11,22 @@ Le projet exploite des images IRM **partiellement annotées** : seules 100 image
 | Images brutes | 1 506 |
 | dont annotées (50 `cancer`, 50 `normal`) | 100 |
 | dont non annotées | 1 406 |
-| Retirées : doublons exacts et quasi-doublons | 119 |
+| Retirées : doublons exacts (96) et quasi-doublons, retournés ou pivotés compris (118) | 214 |
 | Retirée : image inexploitable | 1 |
-| **Images retenues** | **1 386** |
-| dont annotées (50 `cancer`, 48 `normal`) | 98 |
+| **Images retenues** | **1 291** |
+| dont annotées (50 `cancer`, 47 `normal`) | 97 |
 
 ## Avancement
 
 | Notebook | Contenu | Page |
 |---|---|---|
-| `notebooks/01.0-kl-data-exploration.ipynb` | Exploration initiale du jeu de données | [Exploration](donnees/exploration.md) |
-| `notebooks/02.0-kl-duplicates-analysis.ipynb` | Analyse et règle de déduplication | [Doublons](donnees/doublons.md) |
-| `notebooks/03.0-kl-feature-extraction.ipynb` | Qualité des images, prétraitement et extraction des features | [Qualité des images](donnees/qualite-images.md), [Extraction des features](pipeline/features.md) |
-| `notebooks/04.0-kl-unsupervised-analysis.ipynb` | Découpage, réduction de dimension, clustering et labels faibles | [Analyse non supervisée](pipeline/analyse-non-supervisee.md) |
+| `notebooks/01.01-kl-data-exploration.ipynb` | Exploration initiale du jeu de données | [Exploration](donnees/exploration.md) |
+| `notebooks/01.02-kl-image-quality.ipynb` | Qualité du contenu des images | [Qualité des images](donnees/qualite-images.md) |
+| `notebooks/02.01-kl-data-cleaning.ipynb` | Doublons exacts et quasi-doublons sur 8 orientations, règle de déduplication | [Doublons](donnees/doublons.md) |
+| `notebooks/02.02-kl-feature-extraction.ipynb` | Prétraitement, extraction des features, cartes d'attention | [Extraction des features](pipeline/features.md) |
+| `notebooks/03.01-kl-unsupervised-analysis.ipynb` | Découpage, réduction de dimension, clustering, labels faibles, cartes directionnelles | [Analyse non supervisée](pipeline/analyse-non-supervisee.md) |
 
-Le code réutilisable vit dans `src/brain_mri/`. Les notebooks l'importent plutôt que de le recopier : voir les pages [Préparation](pipeline/preparation.md), [Extraction des features](pipeline/features.md) et [Analyse non supervisée](pipeline/analyse-non-supervisee.md), et la référence de l'API ([dataset](reference/dataset.md), [features](reference/features.md), [préparation des features](reference/preprocessing.md), [analyse non supervisée](reference/unsupervised.md)).
+Le code réutilisable vit dans `src/brain_mri/`. Les notebooks l'importent plutôt que de le recopier : voir les pages [Préparation](pipeline/preparation.md), [Extraction des features](pipeline/features.md) et [Analyse non supervisée](pipeline/analyse-non-supervisee.md), et la référence de l'API ([configuration](reference/config.md), [dataset](reference/dataset.md), [qualité des images](reference/quality.md), [features](reference/features.md), [cartes d'attention](reference/attention.md), [préparation des features](reference/preprocessing.md), [analyse non supervisée](reference/unsupervised.md), [suivi des expériences](reference/tracking.md)).
 
 ## Où trouver quoi
 
@@ -33,3 +34,4 @@ Le code réutilisable vit dans `src/brain_mri/`. Les notebooks l'importent plut�
 - [Données](donnees/jeu-de-donnees.md) : contenu du jeu de données, exploration, doublons et qualité des images.
 - [Pipeline](pipeline/preparation.md) : flux de la préparation, de l'extraction et de l'analyse non supervisée, fichiers produits.
 - [Décisions](decisions.md) : choix faits et raisons.
+- [Conventions](conventions.md) : nommage des notebooks, organisation du code, suivi des expériences MLflow et workflow git.

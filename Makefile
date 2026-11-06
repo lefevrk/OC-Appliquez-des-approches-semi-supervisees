@@ -81,6 +81,12 @@ unsupervised: requirements
 	uv run src/brain_mri/modeling/unsupervised.py
 
 
+## Open the MLflow UI on the local tracking database
+.PHONY: mlflow-ui
+mlflow-ui: requirements
+	uv run mlflow server --backend-store-uri sqlite:///mlflow.db --port 5001
+
+
 #################################################################################
 # Self Documenting Commands                                                     #
 #################################################################################

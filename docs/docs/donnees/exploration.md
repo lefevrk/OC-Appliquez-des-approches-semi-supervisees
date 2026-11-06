@@ -1,6 +1,6 @@
 # Exploration
 
-Notebook : `notebooks/01.0-kl-data-exploration.ipynb`
+Notebook : `notebooks/01.01-kl-data-exploration.ipynb`
 
 Cette étape est **strictement descriptive** : aucun redimensionnement, aucune normalisation et aucun apprentissage. Elle établit un état des lieux reproductible des données brutes.
 
@@ -44,5 +44,5 @@ Cette étape est **strictement descriptive** : aucun redimensionnement, aucune n
 
 | Élément | Emplacement |
 |---|---|
-| Notebook | `notebooks/01.0-kl-data-exploration.ipynb` |
+| Notebook | `notebooks/01.01-kl-data-exploration.ipynb` |
 | Inventaire et hash | `brain_mri.dataset.build_inventory`, `brain_mri.dataset.add_file_hash` |

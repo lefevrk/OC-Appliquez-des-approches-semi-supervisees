@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/brain_mri"]
+packages = ["src/brain_mri", "src/utils"]
 
 [project]
 name = "brain-mri"
@@ -25,6 +25,9 @@ dependencies = [
   "scikit-learn",
   "torch>=2.14.1",
   "torchvision>=0.29.1",
+  "mlflow>=3.9,<4",
+  "opencv-python>=5.0.0.93",
+  "ipywidgets>=8.1.9",
 ]
 requires-python = ">=3.12"
 
@@ -40,7 +43,7 @@ select = ["E", "W", "F", "I", "D", "B"]
 ignore = ["E501", "D100", "D104"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["brain_mri"]
+known-first-party = ["brain_mri", "utils"]
 force-sort-within-sections = true
 
 [tool.ruff.lint.pydocstyle]
