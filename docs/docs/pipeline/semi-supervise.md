@@ -92,7 +92,7 @@ Sur le test, C détecte 7 cancers sur 8 (un raté), A 6 sur 8 (deux ratés) et B
     - **Labels faibles de qualité limitée** : l'exactitude sur les images annotées jamais vues est de 0,60 à 0,71 (voir [Analyse non supervisée](analyse-non-supervisee.md)), et les clusters suivent en partie le plan de coupe. Le réseau apprend ces labels, pas la pathologie.
     - **Information déjà contenue dans les features** : les labels faibles viennent des mêmes features ResNet50 que celles du CNN, la phase faible peut donc se contenter de reproduire la partition de K-Means.
     - **Ordre imposé par le protocole** : la phase la moins fiable vient en premier, et la phase fiable doit la rattraper.
-    - **Un seul entraînement par modèle** et un seul découpage : les résultats dépendent de la graine, et des images très proches peuvent se trouver de part et d'autre du découpage.
+    - **Un seul entraînement par modèle** et un seul découpage : les résultats dépendent de la graine (voir [Expérimentations](semi-supervise-experiences.md), qui répète les entraînements), et des images très proches peuvent se trouver de part et d'autre du découpage.
 
 ## Suivi des expériences
 
