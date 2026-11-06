@@ -332,9 +332,20 @@ def log_sklearn_model(model: Any, name: str) -> None:
     mlflow.sklearn.log_model(sk_model=model, name=name)
 
 
-def log_pytorch_model(model: torch.nn.Module, name: str) -> None:
-    """Enregistre un modèle PyTorch."""
-    mlflow.pytorch.log_model(pytorch_model=model, name=name)
+def log_pytorch_model(
+    model: torch.nn.Module, name: str, input_example: Any
+) -> None:
+    """Enregistre un modèle PyTorch.
+
+    Args:
+        model: Modèle à enregistrer.
+        name: Nom du modèle dans le run.
+        input_example: Exemple d'entrée (tableau NumPy ou tenseur) : MLflow en
+            a besoin pour tracer le graphe du modèle.
+    """
+    mlflow.pytorch.log_model(
+        pytorch_model=model, name=name, input_example=input_example
+    )
 
 
 # --- Lecture -----------------------------------------------------------------

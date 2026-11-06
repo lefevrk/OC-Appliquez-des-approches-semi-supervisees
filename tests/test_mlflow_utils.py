@@ -10,6 +10,8 @@ import numpy as np
 import pandas as pd
 import pytest
 from sklearn.cluster import KMeans
+import torch
+from torch import nn
 
 from brain_mri.config import PROJ_ROOT, SAFE_ROOT_LABEL
 from utils import mlflow_utils
@@ -22,6 +24,7 @@ from utils.mlflow_utils import (
     log_figure,
     log_metrics,
     log_params,
+    log_pytorch_model,
     log_sklearn_model,
     mask_mlflow_output,
     resume_run,
@@ -230,6 +233,21 @@ def test_log_sklearn_model_can_be_reloaded(tracking: Path):
 
     reloaded = mlflow.sklearn.load_model(f"runs:/{run.info.run_id}/kmeans")
     assert (reloaded.predict(points) == model.predict(points)).all()
+
+
+def test_log_pytorch_model_can_be_reloaded_and_predict_a_batch(
+    tracking: Path,
+):
+    model = nn.Sequential(nn.Flatten(), nn.Linear(12, 2)).eval()
+    example = np.zeros((2, 3, 2, 2), dtype=np.float32)
+
+    with _run() as run:
+        log_pytorch_model(model, "reseau", example)
+
+    reloaded = mlflow.pytorch.load_model(f"runs:/{run.info.run_id}/reseau")
+    batch = torch.rand(5, 3, 2, 2)
+    with torch.no_grad():
+        assert reloaded(batch).shape == (5, 2)
 
 
 def test_get_best_run_follows_the_metric_direction(tracking: Path):
