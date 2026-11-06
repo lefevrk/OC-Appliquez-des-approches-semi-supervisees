@@ -78,7 +78,7 @@ Annoter une IRM demande l'avis d'un radiologue : c'est long et coûteux. Une app
 - **Visualise où le réseau regarde** : cartes d'activation et Grad-CAM, puis cartes directionnelles qui montrent ce qui distingue les deux groupes de K-Means
 - **Réserve un jeu de test et un jeu de validation** avant toute transformation, tirés parmi les images annotées de façon stratifiée
 - **Regroupe les images** (K-Means, DBSCAN) après standardisation et PCA, mesure l'accord avec les labels forts (ARI), balaie le nombre de clusters et attribue des **labels faibles** aux images non annotées avec K-Means
-- **Entraîne et compare trois CNN** (labels forts seuls, labels faibles seuls, puis labels faibles et labels forts) sur les mêmes images de test, avec le rappel de `cancer` pour métrique principale
+- **Entraîne et compare trois CNN** (labels forts seuls, labels faibles seuls, puis labels faibles et labels forts) sur les mêmes images de test, avec le rappel de `cancer` pour métrique principale, puis teste deux variantes de réglages sur plusieurs graines
 - **Suit les expériences** avec MLflow, en local : un run par configuration testée, avec ses paramètres, ses métriques, ses figures et ses modèles
 - **Se teste et se documente** : tests `pytest` sur la préparation, l'extraction, les labels faibles et l'absence de chemin personnel dans les notebooks, documentation MkDocs avec référence d'API générée
 
@@ -190,8 +190,9 @@ La commande ajuste la standardisation, la PCA et K-Means sur le jeu d'entraînem
 | `notebooks/02.02-kl-feature-extraction.ipynb` | Prétraitement, extraction des features et cartes d'attention |
 | `notebooks/03.01-kl-unsupervised-analysis.ipynb` | Découpage, réduction de dimension, clustering, labels faibles et cartes directionnelles |
 | `notebooks/03.02-kl-semi-supervised.ipynb` | CNN entraîné sur les labels forts, sur les labels faibles, puis sur les deux |
+| `notebooks/03.03-kl-semi-supervised-experiments.ipynb` | Deux expérimentations sur les réglages, plusieurs graines, comparaison de C et de A graine par graine |
 
-Les clusterings de `03.01` et les entraînements de `03.02` sont enregistrés dans MLflow : `make mlflow-ui` ouvre l'interface.
+Les clusterings de `03.01` et les entraînements de `03.02` et `03.03` sont enregistrés dans MLflow : `make mlflow-ui` ouvre l'interface.
 
 ### Consulter la documentation
 
@@ -247,11 +248,9 @@ make test          # Exécuter les tests
 │   │   ├── features.py          <- Extraction de caractéristiques visuelles
 │   │   ├── modeling
 │   │   │   ├── __init__.py
-│   │   │   ├── predict.py       <- Inférence avec les modèles entraînés
 │   │   │   ├── preprocessing.py <- Standardisation et PCA
 │   │   │   ├── train.py         <- Entraînement du CNN et mesure de ses performances
 │   │   │   └── unsupervised.py  <- Clustering, labels faibles et leur évaluation
-│   │   ├── plots.py             <- Création des visualisations
 │   │   └── quality.py           <- Descripteurs du contenu des images
 │   └── utils
 │       └── mlflow_utils.py      <- Suivi des expériences MLflow (appelé par les notebooks)
@@ -273,8 +272,9 @@ make test          # Exécuter les tests
 - La PCA conserve 90 % de la variance (479 composantes). K-Means (deux clusters) atteint un ARI de 0,271 sur l'entraînement, 0,122 sur la validation et 0,005 sur le test (14 et 15 images : ces valeurs varient beaucoup). Aucun nombre de clusters de 2 à 6 ne se détache, et DBSCAN ne forme qu'un seul cluster, avec un ARI nul - détail dans [Analyse non supervisée](docs/docs/pipeline/analyse-non-supervisee.md).
 - Les labels faibles de K-Means (682 `normal`, 512 `cancer`) ont une exactitude de 0,71 sur la validation et 0,60 sur le test (intervalle à 95 % de 0,36 à 0,80 sur 15 images), avec une confiance faible : sur les 29 images jamais vues, 9 `cancer` sur 15 sont étiquetées `normal`. La répartition réelle des images non annotées est inconnue.
 - Sur le test (15 images), le CNN entraîné sur les labels faibles puis sur les labels forts (C) détecte 7 cancers sur 8 (rappel de 0,875) contre 6 sur 8 pour le CNN entraîné sur les labels forts seuls (A), sans fausse alerte. Sur la validation (14 images), A fait un peu mieux que C. Chaque écart tient à une image : il est dans le sens attendu mais trop petit pour être démontré - détail dans [Méthode semi-supervisée](docs/docs/pipeline/semi-supervise.md).
+- Sur 5 graines, le CNN entraîné sur les labels faibles puis sur les labels forts (C) obtient un rappel de test de 0,875 à chaque graine, contre 0,75 à 1,00 pour celui entraîné sur les labels forts seuls (A) : C fait mieux ou autant sur 4 graines sur 5, mais l'écart est d'une image, trop petit pour conclure avec 15 images de test - détail dans [Expérimentations](docs/docs/pipeline/semi-supervise-experiences.md). Dégeler `layer4` est justifié, car C est nettement moins bon que A quand seule la couche de classification s'entraîne.
 - Les clusters suivent en partie la luminosité et le contraste (un peu moins que les labels forts, sans écart démontrable), et les cartes directionnelles semblent suivre le plan de coupe autant que la pathologie : les labels faibles sont à utiliser avec prudence.
-- **199 tests** couvrent l'inventaire, la déduplication, le manifeste, le découpage, le prétraitement, l'extraction, les cartes d'attention, le suivi MLflow, la standardisation, les labels faibles, l'entraînement du CNN et l'absence de chemin personnel dans les notebooks.
+- **200 tests** couvrent l'inventaire, la déduplication, le manifeste, le découpage, le prétraitement, l'extraction, les cartes d'attention, le suivi MLflow, la standardisation, les labels faibles, l'entraînement du CNN et l'absence de chemin personnel dans les notebooks.
 
 <!-- ACKNOWLEDGMENTS -->
 ## Remerciements

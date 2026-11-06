@@ -164,6 +164,14 @@ Les choix faits pendant la préparation des données, l'extraction des features,
 
 **Raison.** Les choix de l'analyse non supervisée (`k = 2`, 90 % de la variance, K-Means contre DBSCAN) ont été faits en regardant les 68 annotées d'entraînement : en validation croisée, ces images deviendraient des images de test. La validation croisée exigerait aussi de refaire le pré-clustering dans chaque pli, pour un gain de précision incertain. Des copies augmentées des 15 images de test ne sont pas des observations indépendantes : elles mesurent la robustesse, pas une information de plus.
 
+## Deux variantes, une règle de choix posée d'avance, plusieurs graines
+
+**Décision.** Deux variantes sont comparées à la référence : un réseau dont seule la couche de classification s'entraîne, et une phase sur les labels faibles de 3 époques au lieu de 10. La référence est entraînée sur 5 graines, les variantes sur 3. La variante retenue est celle dont le modèle C a le meilleur rappel de validation moyen, puis le meilleur F1 macro de validation : le test est rapporté pour toutes les variantes, sans servir à choisir. Les modèles A et C sont comparés graine par graine sur les mêmes 15 images de test.
+
+**Raison.** Les réglages du notebook de la méthode semi-supervisée étaient fixés d'avance : les variantes les justifient. Dégeler `layer4` est nécessaire : sans lui, A fait des fausses alertes et C devient nettement moins bon que A. Raccourcir la phase faible ne change presque pas C. Sur la référence, C obtient un rappel de test de 0,875 à chaque graine et A de 0,75 à 1,00 : l'écart est d'une image.
+
+**Limites.** La variante retenue l'est d'un écart inférieur à une image de validation. Deux changements seulement ont été testés. Les couches de normalisation par lot continuent de s'adapter, même quand `layer4` est gelée.
+
 ## Suivi des expériences MLflow en local
 
 **Décision.** Les clusterings et les entraînements sont suivis avec MLflow, en local (base SQLite `mlflow.db` et dossier `mlruns/`, ignorés par git), dans une seule expérience, avec un run à plat par configuration testée. Seuls les notebooks qui comparent des configurations créent des runs.

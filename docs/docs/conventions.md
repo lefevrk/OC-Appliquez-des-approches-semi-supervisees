@@ -10,7 +10,7 @@ Les notebooks se nomment `PHASE.NUMÉRO-initiales-description` (standard cookiec
 |---|---|---|
 | `01` | Exploration des données | `01.01-kl-data-exploration`, `01.02-kl-image-quality` |
 | `02` | Préparation | `02.01-kl-data-cleaning`, `02.02-kl-feature-extraction` |
-| `03` | Modélisation | `03.01-kl-unsupervised-analysis`, `03.02-kl-semi-supervised` |
+| `03` | Modélisation | `03.01-kl-unsupervised-analysis`, `03.02-kl-semi-supervised`, `03.03-kl-semi-supervised-experiments` |
 
 Règles communes :
 
@@ -39,7 +39,7 @@ Le suivi utilise MLflow, en local (voir [`utils.mlflow_utils`](reference/trackin
 
 - **Une seule expérience** (`BrainScanAI`) pour tout le projet. La phase et le notebook sont des **tags** qui servent de filtres dans l'interface.
 - **Un run correspond à une configuration testée**, pas à un notebook : une valeur de `k`, une configuration de DBSCAN, un seuil de décision. Les runs sont à plat, sans run parent.
-- Seuls les notebooks qui **comparent des configurations** créent des runs : `03.01-kl-unsupervised-analysis` et `03.02-kl-semi-supervised`. Les notebooks d'exploration et de nettoyage prennent des décisions, qui vivent dans le manifeste, le rapport des suppressions et la page [Décisions](decisions.md).
+- Seuls les notebooks qui **comparent des configurations** créent des runs : `03.01-kl-unsupervised-analysis`, `03.02-kl-semi-supervised` et `03.03-kl-semi-supervised-experiments`. Les notebooks d'exploration et de nettoyage prennent des décisions, qui vivent dans le manifeste, le rapport des suppressions et la page [Décisions](decisions.md).
 - Chaque run enregistre ses paramètres, ses métriques, le jeu d'entraînement (schéma MLflow, sans copie du fichier) et, comme artefacts, des figures et les modèles ajustés.
 - Les mesures du **test** sont consignées pour mémoire : on ne s'en sert ni pour comparer des runs, ni pour en choisir un.
 

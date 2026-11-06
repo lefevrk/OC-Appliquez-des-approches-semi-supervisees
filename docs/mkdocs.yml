@@ -79,6 +79,7 @@ nav:
       - Extraction des features: pipeline/features.md
       - Analyse non supervisée: pipeline/analyse-non-supervisee.md
       - Méthode semi-supervisée: pipeline/semi-supervise.md
+      - Expérimentations: pipeline/semi-supervise-experiences.md
   - Référence:
       - Configuration: reference/config.md
       - Dataset: reference/dataset.md
