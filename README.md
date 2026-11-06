@@ -58,10 +58,8 @@ flowchart LR
     PREP --> MAN[/Manifeste<br/>1 291 images/]
     MAN --> FEAT[Caractéristiques<br/>ResNet50 pré-entraîné]
     FEAT --> CLUS[Clustering<br/>labels faibles]
-    CLUS -.-> SEMI[Apprentissage<br/>semi-supervisé]
+    CLUS --> SEMI[Apprentissage<br/>semi-supervisé]
 ```
-
-La flèche pointillée est l'étape à venir.
 
 ### Contexte
 
@@ -80,6 +78,7 @@ Annoter une IRM demande l'avis d'un radiologue : c'est long et coûteux. Une app
 - **Visualise où le réseau regarde** : cartes d'activation et Grad-CAM, puis cartes directionnelles qui montrent ce qui distingue les deux groupes de K-Means
 - **Réserve un jeu de test et un jeu de validation** avant toute transformation, tirés parmi les images annotées de façon stratifiée
 - **Regroupe les images** (K-Means, DBSCAN) après standardisation et PCA, mesure l'accord avec les labels forts (ARI), balaie le nombre de clusters et attribue des **labels faibles** aux images non annotées avec K-Means
+- **Entraîne et compare trois CNN** (labels forts seuls, labels faibles seuls, puis labels faibles et labels forts) sur les mêmes images de test, avec le rappel de `cancer` pour métrique principale
 - **Suit les expériences** avec MLflow, en local : un run par configuration testée, avec ses paramètres, ses métriques, ses figures et ses modèles
 - **Se teste et se documente** : tests `pytest` sur la préparation, l'extraction, les labels faibles et l'absence de chemin personnel dans les notebooks, documentation MkDocs avec référence d'API générée
 
@@ -105,7 +104,7 @@ Annoter une IRM demande l'avis d'un radiologue : c'est long et coûteux. Une app
 | 1. Importer les données et explorer le jeu de radiographies | Terminée |
 | 2. Prétraiter et extraire les caractéristiques | Terminée |
 | 3. Réaliser une analyse non supervisée | Terminée |
-| 4. Appliquer une méthode semi-supervisée | À venir |
+| 4. Appliquer une méthode semi-supervisée | Terminée |
 | Synthèse et recommandations de passage à l'échelle | À venir |
 
 <p align="right">(<a href="#readme-top">retour en haut</a>)</p>
@@ -190,8 +189,9 @@ La commande ajuste la standardisation, la PCA et K-Means sur le jeu d'entraînem
 | `notebooks/02.01-kl-data-cleaning.ipynb` | Doublons exacts et quasi-doublons sur 8 orientations, règle de déduplication |
 | `notebooks/02.02-kl-feature-extraction.ipynb` | Prétraitement, extraction des features et cartes d'attention |
 | `notebooks/03.01-kl-unsupervised-analysis.ipynb` | Découpage, réduction de dimension, clustering, labels faibles et cartes directionnelles |
+| `notebooks/03.02-kl-semi-supervised.ipynb` | CNN entraîné sur les labels forts, sur les labels faibles, puis sur les deux |
 
-Les clusterings de `03.01` sont enregistrés dans MLflow : `make mlflow-ui` ouvre l'interface.
+Les clusterings de `03.01` et les entraînements de `03.02` sont enregistrés dans MLflow : `make mlflow-ui` ouvre l'interface.
 
 ### Consulter la documentation
 
@@ -249,7 +249,7 @@ make test          # Exécuter les tests
 │   │   │   ├── __init__.py
 │   │   │   ├── predict.py       <- Inférence avec les modèles entraînés
 │   │   │   ├── preprocessing.py <- Standardisation et PCA
-│   │   │   ├── train.py         <- Entraînement des modèles
+│   │   │   ├── train.py         <- Entraînement du CNN et mesure de ses performances
 │   │   │   └── unsupervised.py  <- Clustering, labels faibles et leur évaluation
 │   │   ├── plots.py             <- Création des visualisations
 │   │   └── quality.py           <- Descripteurs du contenu des images
@@ -272,8 +272,9 @@ make test          # Exécuter les tests
 - Le test (15 images) et la validation (14 images) sont tirés parmi les 97 annotées avant toute transformation, de façon stratifiée (environ 70 % / 15 % / 15 %), ce qui laisse 68 annotées à l'entraînement - détail dans [Préparation](docs/docs/pipeline/preparation.md).
 - La PCA conserve 90 % de la variance (479 composantes). K-Means (deux clusters) atteint un ARI de 0,271 sur l'entraînement, 0,122 sur la validation et 0,005 sur le test (14 et 15 images : ces valeurs varient beaucoup). Aucun nombre de clusters de 2 à 6 ne se détache, et DBSCAN ne forme qu'un seul cluster, avec un ARI nul - détail dans [Analyse non supervisée](docs/docs/pipeline/analyse-non-supervisee.md).
 - Les labels faibles de K-Means (682 `normal`, 512 `cancer`) ont une exactitude de 0,71 sur la validation et 0,60 sur le test (intervalle à 95 % de 0,36 à 0,80 sur 15 images), avec une confiance faible : sur les 29 images jamais vues, 9 `cancer` sur 15 sont étiquetées `normal`. La répartition réelle des images non annotées est inconnue.
+- Sur le test (15 images), le CNN entraîné sur les labels faibles puis sur les labels forts (C) détecte 7 cancers sur 8 (rappel de 0,875) contre 6 sur 8 pour le CNN entraîné sur les labels forts seuls (A), sans fausse alerte. Sur la validation (14 images), A fait un peu mieux que C. Chaque écart tient à une image : il est dans le sens attendu mais trop petit pour être démontré - détail dans [Méthode semi-supervisée](docs/docs/pipeline/semi-supervise.md).
 - Les clusters suivent en partie la luminosité et le contraste (un peu moins que les labels forts, sans écart démontrable), et les cartes directionnelles semblent suivre le plan de coupe autant que la pathologie : les labels faibles sont à utiliser avec prudence.
-- **182 tests** couvrent l'inventaire, la déduplication, le manifeste, le découpage, le prétraitement, l'extraction, les cartes d'attention, le suivi MLflow, la standardisation, les labels faibles et l'absence de chemin personnel dans les notebooks.
+- **199 tests** couvrent l'inventaire, la déduplication, le manifeste, le découpage, le prétraitement, l'extraction, les cartes d'attention, le suivi MLflow, la standardisation, les labels faibles, l'entraînement du CNN et l'absence de chemin personnel dans les notebooks.
 
 <!-- ACKNOWLEDGMENTS -->
 ## Remerciements

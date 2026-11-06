@@ -25,13 +25,14 @@ Le projet exploite des images IRM **partiellement annotées** : seules 100 image
 | `notebooks/02.01-kl-data-cleaning.ipynb` | Doublons exacts et quasi-doublons sur 8 orientations, règle de déduplication | [Doublons](donnees/doublons.md) |
 | `notebooks/02.02-kl-feature-extraction.ipynb` | Prétraitement, extraction des features, cartes d'attention | [Extraction des features](pipeline/features.md) |
 | `notebooks/03.01-kl-unsupervised-analysis.ipynb` | Découpage, réduction de dimension, clustering, labels faibles, cartes directionnelles | [Analyse non supervisée](pipeline/analyse-non-supervisee.md) |
+| `notebooks/03.02-kl-semi-supervised.ipynb` | CNN entraîné sur les labels forts, sur les labels faibles, puis sur les deux | [Méthode semi-supervisée](pipeline/semi-supervise.md) |
 
-Le code réutilisable vit dans `src/brain_mri/`. Les notebooks l'importent plutôt que de le recopier : voir les pages [Préparation](pipeline/preparation.md), [Extraction des features](pipeline/features.md) et [Analyse non supervisée](pipeline/analyse-non-supervisee.md), et la référence de l'API ([configuration](reference/config.md), [dataset](reference/dataset.md), [qualité des images](reference/quality.md), [features](reference/features.md), [cartes d'attention](reference/attention.md), [préparation des features](reference/preprocessing.md), [analyse non supervisée](reference/unsupervised.md), [suivi des expériences](reference/tracking.md)).
+Le code réutilisable vit dans `src/brain_mri/`. Les notebooks l'importent plutôt que de le recopier : voir les pages [Préparation](pipeline/preparation.md), [Extraction des features](pipeline/features.md), [Analyse non supervisée](pipeline/analyse-non-supervisee.md) et [Méthode semi-supervisée](pipeline/semi-supervise.md), et la référence de l'API ([configuration](reference/config.md), [dataset](reference/dataset.md), [qualité des images](reference/quality.md), [features](reference/features.md), [cartes d'attention](reference/attention.md), [préparation des features](reference/preprocessing.md), [analyse non supervisée](reference/unsupervised.md), [entraînement du CNN](reference/train.md), [suivi des expériences](reference/tracking.md)).
 
 ## Où trouver quoi
 
 - [Démarrage](getting-started.md) : installer le projet, produire le jeu dédupliqué, extraire les features et calculer les labels faibles.
 - [Données](donnees/jeu-de-donnees.md) : contenu du jeu de données, exploration, doublons et qualité des images.
-- [Pipeline](pipeline/preparation.md) : flux de la préparation, de l'extraction et de l'analyse non supervisée, fichiers produits.
+- [Pipeline](pipeline/preparation.md) : flux de la préparation, de l'extraction, de l'analyse non supervisée et de la méthode semi-supervisée, fichiers produits.
 - [Décisions](decisions.md) : choix faits et raisons.
 - [Conventions](conventions.md) : nommage des notebooks, organisation du code, suivi des expériences MLflow et workflow git.

@@ -1,6 +1,6 @@
 # Décisions
 
-Les choix faits pendant la préparation des données, l'extraction des features et l'analyse non supervisée, avec leur justification.
+Les choix faits pendant la préparation des données, l'extraction des features, l'analyse non supervisée et la méthode semi-supervisée, avec leur justification.
 
 ## Les données brutes restent immuables
 
@@ -134,11 +134,41 @@ Les choix faits pendant la préparation des données, l'extraction des features 
 
 **Limites.** Les cartes sont grossières (7 × 7 pour `layer4`) et ne localisent pas la lésion ; elles semblent suivre le plan de coupe autant que la pathologie.
 
+## Un CNN dont `layer4` et la couche finale s'ajustent
+
+**Décision.** Le CNN est le ResNet50 pré-entraîné de l'extraction : toutes les couches sont gelées, sauf `layer4` et la couche de classification, remplacée par une couche linéaire à deux sorties. Il est entraîné avec Adam (taux d'apprentissage de 1e-4), des lots de 16 images et une augmentation géométrique légère (retournement horizontal, rotation jusqu'à 15°, translation de 5 %, zoom de 5 %).
+
+**Raison.** Avec 68 images annotées, ajuster tout le réseau risquerait de le faire apprendre par cœur ; `layer1` à `layer3` gardent les caractéristiques d'ImageNet, transférables. Les images retournées sont déjà présentes dans le jeu, donc le retournement horizontal reste réaliste.
+
+**Limites.** Les couches de normalisation par lot restent en mode entraînement, même gelées : elles s'adaptent aux IRM, mais leurs statistiques se règlent sur peu d'images.
+
+## A, B et C sur les mêmes images, avec des réglages fixés d'avance
+
+**Décision.** Trois modèles partent du même réseau : A sur les labels forts seuls, B sur les labels faibles seuls (10 époques fixes, lots équilibrés entre classes) et C, qui poursuit B sur les labels forts. Tous sont lus sur les mêmes 15 images de test, une seule fois. La validation ne sert qu'à l'arrêt anticipé de A et de C (patience de 5, meilleure époque conservée). Les réglages ne sont jamais ajustés et une seule graine est utilisée.
+
+**Raison.** C'est la comparaison demandée par le sujet : labels forts seuls contre labels faibles puis labels forts. Sur 15 images de test, une recherche de réglages reviendrait à les ajuster sur le test.
+
+**Limites.** Un seul entraînement par modèle : les résultats dépendent de la graine, et un écart d'une image n'est pas démontrable.
+
+## Le rappel de `cancer` d'abord
+
+**Décision.** La métrique principale est le rappel de la classe `cancer`. Elle est lue avec la précision de `cancer`, le F1 macro, l'exactitude, la matrice de confusion et le rapport de classification, au seuil de 0,5.
+
+**Raison.** Rater un cancer est l'erreur la plus grave, donc le rappel de `cancer` passe en premier. Seul, il a une solution triviale (tout prédire `cancer`) : la précision, le F1 macro et la matrice de confusion le complètent.
+
+**Limites.** Sur 15 images, une image change le rappel de 12,5 points.
+
+## Un seul découpage, sans validation croisée
+
+**Décision.** Les modèles sont comparés sur le découpage fixe de l'analyse non supervisée (68, 14 et 15 images), sans validation croisée ni jeu de test agrandi par augmentation.
+
+**Raison.** Les choix de l'analyse non supervisée (`k = 2`, 90 % de la variance, K-Means contre DBSCAN) ont été faits en regardant les 68 annotées d'entraînement : en validation croisée, ces images deviendraient des images de test. La validation croisée exigerait aussi de refaire le pré-clustering dans chaque pli, pour un gain de précision incertain. Des copies augmentées des 15 images de test ne sont pas des observations indépendantes : elles mesurent la robustesse, pas une information de plus.
+
 ## Suivi des expériences MLflow en local
 
-**Décision.** Les clusterings sont suivis avec MLflow, en local (base SQLite `mlflow.db` et dossier `mlruns/`, ignorés par git), dans une seule expérience, avec un run à plat par configuration testée. Seuls les notebooks qui comparent des configurations créent des runs.
+**Décision.** Les clusterings et les entraînements sont suivis avec MLflow, en local (base SQLite `mlflow.db` et dossier `mlruns/`, ignorés par git), dans une seule expérience, avec un run à plat par configuration testée. Seuls les notebooks qui comparent des configurations créent des runs.
 
-**Raison.** Chaque valeur de `k`, chaque configuration de DBSCAN et le K-Means retenu sont comparables dans l'interface, avec leurs paramètres, leurs métriques, leur jeu d'entraînement, leurs figures et leurs modèles ajustés. Les tags (`git_commit`, `manifest_sha256`, `seed`...) relient chaque run au code et aux données qui l'ont produit. Voir [Conventions](conventions.md#suivi-des-experiences).
+**Raison.** Chaque valeur de `k`, chaque configuration de DBSCAN, le K-Means retenu et chaque CNN entraîné sont comparables dans l'interface, avec leurs paramètres, leurs métriques, leur jeu d'entraînement, leurs figures et leurs modèles ajustés. Un modèle PyTorch est enregistré avec un exemple d'entrée de deux images, car avec une seule, `torch.export` fixe la taille de lot à 1. Les tags (`git_commit`, `manifest_sha256`, `seed`...) relient chaque run au code et aux données qui l'ont produit. Voir [Conventions](conventions.md#suivi-des-experiences).
 
 ## Aucun chemin personnel dans les sorties de notebooks
 

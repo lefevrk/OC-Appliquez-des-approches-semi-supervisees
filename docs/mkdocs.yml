@@ -78,6 +78,7 @@ nav:
       - Préparation: pipeline/preparation.md
       - Extraction des features: pipeline/features.md
       - Analyse non supervisée: pipeline/analyse-non-supervisee.md
+      - Méthode semi-supervisée: pipeline/semi-supervise.md
   - Référence:
       - Configuration: reference/config.md
       - Dataset: reference/dataset.md
@@ -86,6 +87,7 @@ nav:
       - Cartes d'attention: reference/attention.md
       - Préparation des features: reference/preprocessing.md
       - Analyse non supervisée: reference/unsupervised.md
+      - Entraînement du CNN: reference/train.md
       - Suivi des expériences: reference/tracking.md
   - Décisions: decisions.md
   - Conventions: conventions.md
